@@ -1,0 +1,54 @@
+#pragma once
+
+#include "defines.h"
+
+namespace GridMeas{
+  using namespace Grid;
+
+  GRID_SERIALIZABLE_ENUM(ActionType, undef, DWF, 1, Mobius, 2);
+
+  CayleyFermion5D<GparityWilsonImplD>* createActionD(ActionType action,
+						     const GparityWilsonImplD::ImplParams &Params, double mass, double mobius_scale,
+						     LatticeGaugeFieldD &Umu,
+						     GridCartesian         &FiveDimGrid,
+						     GridRedBlackCartesian &FiveDimRedBlackGrid,
+						     GridCartesian         &FourDimGrid,
+						     GridRedBlackCartesian &FourDimRedBlackGrid
+						     ){
+    double bpc = mobius_scale;
+    double bmc = 1.0;
+    double b = (bpc + bmc)/2.;
+    double c = (bpc - bmc)/2.;
+    
+    switch(action){
+    case ActionType::DWF:
+      return new GparityDomainWallFermionD(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, Params);
+    case ActionType::Mobius:
+      return new GparityMobiusFermionD(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, b, c, Params);
+    };
+    return nullptr;
+  };
+
+  CayleyFermion5D<GparityWilsonImplF>* createActionF(ActionType action,
+						     const GparityWilsonImplD::ImplParams &Params, double mass, double mobius_scale,
+						     LatticeGaugeFieldF &Umu,
+						     GridCartesian         &FiveDimGrid,
+						     GridRedBlackCartesian &FiveDimRedBlackGrid,
+						     GridCartesian         &FourDimGrid,
+						     GridRedBlackCartesian &FourDimRedBlackGrid
+						     ){
+    double bpc = mobius_scale;
+    double bmc = 1.0;
+    double b = (bpc + bmc)/2.;
+    double c = (bpc - bmc)/2.;
+    
+    switch(action){
+    case ActionType::DWF:
+      return new GparityDomainWallFermionF(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, Params);
+    case ActionType::Mobius:
+      return new GparityMobiusFermionF(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, b, c, Params);
+    };
+    return nullptr;
+  };
+
+}
