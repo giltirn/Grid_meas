@@ -33,3 +33,7 @@ test_array_io: test_array_io.cc
 test_pion_2pt: test_pion_2pt.cc
 	$(CXX) test_pion_2pt.cc -c -o test_pion_2pt.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_pion_2pt.o -o test_pion_2pt $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
+test_kaon_2pt: test_kaon_2pt.cc
+	$(CXX) test_kaon_2pt.cc -c -o test_kaon_2pt.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_kaon_2pt.o -o test_kaon_2pt $(CXXFLAGS) $(LDFLAGS) $(LIBS)

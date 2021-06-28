@@ -11,6 +11,8 @@
 #include "common/read_config.h"
 #include "common/lanczos.h"
 #include "common/pion_2pt.h"
+#include "common/kaon_2pt.h"
+#include "common/ps_singlet_2pt.h"
 
 
 

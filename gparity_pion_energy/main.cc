@@ -14,6 +14,7 @@ struct MeasArgs: Serializable {
 				  std::string, rng_stub,
 				  double, gfix_alpha,
 				  double, ml,
+				  double, ms,
 				  double, cg_stop,
 				  double, cg_stop_inner,
 				  int, nsrc,
@@ -27,6 +28,7 @@ struct MeasArgs: Serializable {
     rng_stub = "ckpoint_rng";
     gfix_alpha = 0.05;
     ml = 0.01;
+    ms = 0.032;
     mobius_scale = 2.0;
     cg_stop = 1e-8;
     cg_stop_inner = 1e-6;
@@ -50,6 +52,10 @@ int main(int argc, char** argv){
   std::string save_evecs_stub, save_evals_stub;
 
   bool cps_cfg = false;
+
+  bool unit_gauge = false;
+  bool use_evecs = true;
+
   for(int i=1;i<argc;i++){
     std::string sargv(argv[i]);
     if(sargv == "--cps_cfg"){
@@ -62,6 +68,10 @@ int main(int argc, char** argv){
       load_evecs = true;
       load_evecs_stub = argv[i+1];
       load_evals_stub = argv[i+2];
+    }else if(sargv == "--disable_evecs"){
+      use_evecs = false;
+    }else if(sargv == "--unit_gauge"){
+      unit_gauge = true;
     }
   }
 
@@ -85,6 +95,7 @@ int main(int argc, char** argv){
   Coordinate latt = GridDefaultLatt();
   int Lt = latt[3];
 
+  std::cout << GridLogMessage << "Creating 4d and 5d Grids with Ls=" << args.Ls << std::endl;
   auto UGridD   = SpaceTimeGrid::makeFourDimGrid(latt, GridDefaultSimd(Nd, vComplexD::Nsimd()), GridDefaultMpi());
   auto UrbGridD = SpaceTimeGrid::makeFourDimRedBlackGrid(UGridD);
   auto FGridD     = SpaceTimeGrid::makeFiveDimGrid(args.Ls, UGridD);
@@ -100,25 +111,23 @@ int main(int argc, char** argv){
   for(int i=0;i<3;i++) dirs4[i] = args.GparityDirs[i];
   dirs4[3] = 0; //periodic gauge BC in time
   
+  std::cout << GridLogMessage << "Gauge BCs: " << dirs4 << std::endl;
   ConjugateGimplD::setDirections(dirs4); //gauge BC
 
   GparityWilsonImplD::ImplParams Params;
   for(int i=0;i<Nd-1;i++) Params.twists[i] = args.GparityDirs[i]; //G-parity directions
   Params.twists[Nd-1] = 1; //APBC in time direction
-
-
-  std::vector<int> seeds4({1, 2, 3, 4});
-  GridParallelRNG pRNG(UGridD); //4D!
-  pRNG.SeedFixedIntegers(seeds4);
-
-  GridSerialRNG sRNG;  
-  sRNG.SeedFixedIntegers(seeds4); 
+  std::cout << GridLogMessage << "Fermion BCs: " << Params.twists << std::endl;
 
   LatticeGaugeFieldD U_d(UGridD);
   LatticeGaugeFieldF U_f(UGridF);
 
   CayleyFermion5D<GparityWilsonImplD>* action_d = createActionD(args.action, Params, args.ml, args.mobius_scale, U_d, *FGridD, *FrbGridD, *UGridD, *UrbGridD);
   CayleyFermion5D<GparityWilsonImplF>* action_f = createActionF(args.action, Params, args.ml, args.mobius_scale, U_f, *FGridF, *FrbGridF, *UGridF, *UrbGridF);
+
+  CayleyFermion5D<GparityWilsonImplD>* action_s_d = createActionD(args.action, Params, args.ms, args.mobius_scale, U_d, *FGridD, *FrbGridD, *UGridD, *UrbGridD);
+  CayleyFermion5D<GparityWilsonImplF>* action_s_f = createActionF(args.action, Params, args.ms, args.mobius_scale, U_f, *FGridF, *FrbGridF, *UGridF, *UrbGridF);
+
 
   //Not going to worry about a rotationally invariant operator,
   //just use p_j = pi/2L for both quark and antiquark in direction j
@@ -130,71 +139,125 @@ int main(int argc, char** argv){
   std::vector<int> p2 = p1;
   std::vector<double> p2_phys = p1_phys;
 
-  //Z2wall source
-  assert(Lt % args.nsrc == 0);
-  int tsep = Lt / args.nsrc;
-  std::vector<int> src_t(args.nsrc);
-  
-  std::vector<LatticeSCFmatrixD> sources(args.nsrc, UGridD);
-  for(int i=0;i<args.nsrc;i++){    
-    int t = i * tsep;
-    src_t[i] = t;
-    sources[i] = Z2wallSource(t, pRNG, UGridD);
-  }
+  std::vector<int> mp1 = {-p1[0],-p1[1],-p1[2]};
 
+  //Phase factors
   LatticeComplexD p1_src_phase_field = phaseField(p1_phys, UGridD); //exp(-i \vec p \cdot \vec x)
   p1_src_phase_field = conjugate(p1_src_phase_field); //exp(+i \vec p \cdot \vec x)
 
   const LatticeComplexD &p2_src_phase_field = p1_src_phase_field;
 
+  //Z2wall source timeslices
+  assert(Lt % args.nsrc == 0);
+  int tsep = Lt / args.nsrc;
+  std::vector<int> src_t(args.nsrc);
+  for(int i=0;i<args.nsrc;i++){    
+    int t = i * tsep;
+    src_t[i] = t;
+  }
+
+  //Start calculation
   std::vector<RealD> eval;
   std::vector<FermionFieldD> evec;
 
   //Start traj loop
   for(int traj = cfg_start; traj < cfg_lessthan; traj += cfg_step){
-    cps_cfg ? 
-      readCPSconfiguration(U_d, sRNG, pRNG, traj, args.cfg_stub) :
-      readConfiguration(U_d, sRNG, pRNG, traj, args.cfg_stub, args.rng_stub);
+    std::cout << GridLogMessage << "Starting traj " << traj << std::endl;
+    std::vector<int> seeds4({traj, traj+2, traj+3, traj+4});
+    GridParallelRNG pRNG(UGridD); //4D!
+    pRNG.SeedFixedIntegers(seeds4);
+    
+    GridSerialRNG sRNG;  
+    sRNG.SeedFixedIntegers(seeds4); 
+    
+    std::cout << GridLogMessage << "Creating sources" << std::endl;
+    std::vector<LatticeSCFmatrixD> sources(args.nsrc, UGridD);
+    for(int i=0;i<args.nsrc;i++){    
+      sources[i] = Z2wallSource(src_t[i], pRNG, UGridD);
+    }
+
+    if(unit_gauge){
+      std::cout << GridLogMessage << "Setting gauge field to unit gauge" << std::endl;
+      SU<Nc>::ColdConfiguration(U_d);
+    }else{
+      std::cout << GridLogMessage << "Reading configuration" << std::endl;
+      cps_cfg ? 
+	readCPSconfiguration(U_d, sRNG, pRNG, traj, args.cfg_stub) :
+	readConfiguration(U_d, sRNG, pRNG, traj, args.cfg_stub, args.rng_stub);
+    }
 
     precisionChange(U_f, U_d);
 
     action_d->ImportGauge(U_d);
     action_f->ImportGauge(U_f);
+    action_s_d->ImportGauge(U_d);
+    action_s_f->ImportGauge(U_f);
 
-    if(load_evecs){
-      readEigenvalues(eval, evec, FrbGridD, load_evals_stub, load_evecs_stub, traj);
+    std::vector<RealD> const* eval_ptr = nullptr;
+    std::vector<FermionFieldD> const* evec_ptr = nullptr;
+    if(use_evecs){
+      std::cout << GridLogMessage << "Obtaining eigenvectors" << std::endl;
+      if(load_evecs){
+	readEigenvalues(eval, evec, FrbGridD, load_evals_stub, load_evecs_stub, traj);
+      }else{
+	computeEigenvalues<CayleyFermion5D<GparityWilsonImplD>, FermionFieldD>(eval, evec, args.lanc_args, FGridD, FrbGridD, U_d, *action_d, pRNG);
+      }
+      if(save_evecs) saveEigenvalues(eval, evec, save_evals_stub, save_evecs_stub, traj);
+
+      eval_ptr = &eval;
+      evec_ptr = &evec;
     }else{
-      computeEigenvalues<CayleyFermion5D<GparityWilsonImplD>, FermionFieldD>(eval, evec, args.lanc_args, FGridD, FrbGridD, U_d, *action_d, pRNG);
+      std::cout << GridLogMessage << "Not using eigenvectors" << std::endl;
     }
-    if(save_evecs) saveEigenvalues(eval, evec, save_evals_stub, save_evecs_stub, traj);
 
     std::vector<RealD> Ct_pion(Lt, 0);
     std::vector<RealD> Ct_j5q(Lt, 0);
+    std::vector<RealD> Ct_kaon(Lt, 0);
+    std::vector<RealD> Ct_ps_singlet(Lt, 0);
+    std::vector<RealD> Ct_j5q_kaon(Lt, 0);
 
     for(int s=0;s<args.nsrc;s++){ 
       int t0 = src_t[s];
       std::cout << GridLogMessage << "Starting calculation with source timeslice t0=" << t0 << std::endl;
 
-      LatticeSCFmatrixD src_p1 = p1_src_phase_field * sources[s];
+      //With real Z2 sources   \sum_{i=1}^nhit \eta^i(\vec x, t) \eta^i(\vec y,t) \approx V\delta_{\vec x,\vec y}
+      //We use nhit=1 here and rely on the cancelation over gauge configurations
+      LatticeSCFmatrixD eta = Z2wallSource(t0, pRNG, UGridD);
+      LatticeSCFmatrixD src_p1 = p1_src_phase_field * eta;
 
       LatticeSCFmatrixD Rp1(UGridD), Rp1_mid(UGridD);
-      mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *action_d, *action_f, args.cg_stop, args.cg_stop_inner, &eval, &evec);
-      
+      std::cout << GridLogMessage << "Starting light quark inverse" << std::endl;
+      mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *action_d, *action_f, args.cg_stop, args.cg_stop_inner, eval_ptr, evec_ptr);
+
       const LatticeSCFmatrixD &Rp2 = Rp1;
       const LatticeSCFmatrixD &Rp2_mid = Rp1_mid;
 
+      //Do strange quark also
+      std::cout << GridLogMessage << "Starting strange quark inverse" << std::endl;
+      LatticeSCFmatrixD Rp1_s(UGridD), Rp1_s_mid(UGridD);
+      mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *action_s_d, *action_s_f, args.cg_stop, args.cg_stop_inner, eval_ptr, evec_ptr); //may as well use same evecs, can't hurt
+
       std::vector<RealD> Cts_pion = momWallSourcePionCorrelator(p1, p2, t0, Rp1, Rp2);
       std::vector<RealD> Cts_j5q = momWallSourcePionCorrelator(p1, p2, t0, Rp1_mid, Rp2_mid);
+      std::vector<RealD> Cts_ps_singlet = momWallSourcePSsingletCorrelator(p1, t0, Rp1);
+      std::vector<RealD> Cts_kaon = momWallSourceKaonCorrelator(p1, t0, Rp1, Rp1_s);
+      std::vector<RealD> Cts_j5q_kaon = momWallSourceKaonCorrelator(p1, t0, Rp1_mid, Rp1_s_mid);
 
       for(int t=0;t<Lt;t++){ //average over sources
 	Ct_pion[t] += Cts_pion[t] / RealD(args.nsrc);
 	Ct_j5q[t] += Cts_j5q[t] / RealD(args.nsrc);
+	Ct_kaon[t] += Cts_kaon[t] / RealD(args.nsrc);
+	Ct_ps_singlet[t] += Cts_ps_singlet[t] / RealD(args.nsrc);
+	Ct_j5q_kaon[t] += Cts_j5q_kaon[t] / RealD(args.nsrc);
       }
 
     }
 
     asciiWriteArray(Ct_pion, "pion_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
     asciiWriteArray(Ct_j5q, "j5q_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+    asciiWriteArray(Ct_ps_singlet, "ps_singlet_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    asciiWriteArray(Ct_kaon, "kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    asciiWriteArray(Ct_j5q_kaon, "j5q_kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
   }
 
   std::cout << GridLogMessage << " Done" << std::endl;

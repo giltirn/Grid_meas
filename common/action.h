@@ -22,8 +22,10 @@ namespace GridMeas{
     
     switch(action){
     case ActionType::DWF:
+      std::cout << GridLogMessage << "Creating double prec DWF action with m=" << mass << std::endl;
       return new GparityDomainWallFermionD(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, Params);
     case ActionType::Mobius:
+      std::cout << GridLogMessage << "Creating double prec Mobius action with b+c=" << b+c << " b-c=" << b-c << " m=" << mass << std::endl;
       return new GparityMobiusFermionD(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, b, c, Params);
     };
     return nullptr;
@@ -44,8 +46,10 @@ namespace GridMeas{
     
     switch(action){
     case ActionType::DWF:
+      std::cout << GridLogMessage << "Creating single prec DWF action with m=" << mass << std::endl;	    
       return new GparityDomainWallFermionF(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, Params);
     case ActionType::Mobius:
+      std::cout << GridLogMessage << "Creating single prec Mobius action with b+c=" << b+c << " b-c=" << b-c << " m=" << mass << std::endl;	    
       return new GparityMobiusFermionF(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, b, c, Params);
     };
     return nullptr;
