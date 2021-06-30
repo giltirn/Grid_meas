@@ -13,6 +13,7 @@
 #include "common/pion_2pt.h"
 #include "common/kaon_2pt.h"
 #include "common/ps_singlet_2pt.h"
+#include "common/wilson_flow.h"
 
 
 

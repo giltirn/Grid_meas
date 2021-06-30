@@ -55,7 +55,7 @@ namespace GridMeas{
     BinaryIO::be64toh_v((void*)data.data(), size * 8);
   }
 
-  //Write a real array to plain text
+  //Write a real array to plain text on the same line
   void asciiWriteArray(const std::vector<RealD> &data, const std::string &stub, const int traj){
     std::string filename = stub + "." + std::to_string(traj);
     std::ofstream of(filename);
@@ -66,6 +66,19 @@ namespace GridMeas{
     }
     of << std::endl;
   }
+
+  //Write a real array of x,y pairs to plain text on different lines
+  void asciiWriteArray(const std::vector<std::pair<RealD,RealD> > &data, const std::string &stub, const int traj){
+    std::string filename = stub + "." + std::to_string(traj);
+    std::ofstream of(filename);
+    of.precision(17);
+
+    for(int t=0;t<data.size();t++){
+      of << data[t].first << " " << data[t].second << std::endl;      
+    }
+  }
+
+
 
   bool fileExists(const std::string &fn){
     std::ifstream f(fn);
