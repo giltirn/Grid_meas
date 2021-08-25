@@ -13,12 +13,15 @@ struct MeasArgs: Serializable {
 				  std::string, cfg_stub,
 				  std::string, rng_stub,
 				  double, gfix_alpha,
+				  double, gfix_stop_cnd,
+				  bool, gfix_fourier_accelerate,
 				  double, ml,
 				  double, ms,
 				  double, cg_stop,
 				  double, cg_stop_inner,
 				  int, nsrc,
-				  LanczosParameters, lanc_args
+				  LanczosParameters, lanc_args,
+				  LanczosParameters, lanc_args_s
 				  );
   MeasArgs() { 
     action = ActionType::DWF;
@@ -27,6 +30,8 @@ struct MeasArgs: Serializable {
     cfg_stub = "ckpoint_lat";
     rng_stub = "ckpoint_rng";
     gfix_alpha = 0.05;
+    gfix_stop_cnd = 1e-9;
+    gfix_fourier_accelerate = false;    
     ml = 0.01;
     ms = 0.032;
     mobius_scale = 2.0;
@@ -51,10 +56,23 @@ int main(int argc, char** argv){
   bool save_evecs = false;
   std::string save_evecs_stub, save_evals_stub;
 
+  bool load_evecs_strange = false;
+  std::string load_evecs_strange_stub, load_evals_strange_stub;
+
+  bool save_evecs_strange = false;
+  std::string save_evecs_strange_stub, save_evals_strange_stub;
+
+  bool load_gfix_cfg = false;
+  std::string load_gfix_cfg_stub;
+
+  bool save_gfix_cfg = false;
+  std::string save_gfix_cfg_stub;
+
   bool cps_cfg = false;
 
   bool unit_gauge = false;
   bool use_evecs = true;
+  bool use_evecs_strange = true;
 
   for(int i=1;i<argc;i++){
     std::string sargv(argv[i]);
@@ -68,8 +86,24 @@ int main(int argc, char** argv){
       load_evecs = true;
       load_evecs_stub = argv[i+1];
       load_evals_stub = argv[i+2];
+    }else if(sargv == "--save_evecs_strange"){
+      save_evecs_strange = true;
+      save_evecs_strange_stub = argv[i+1];
+      save_evals_strange_stub = argv[i+2];
+    }else if(sargv == "--load_evecs_strange"){
+      load_evecs_strange = true;
+      load_evecs_strange_stub = argv[i+1];
+      load_evals_strange_stub = argv[i+2];
+    }else if(sargv == "--load_gfix_cfg"){
+      load_gfix_cfg=true;
+      load_gfix_cfg_stub = argv[i+1];
+    }else if(sargv == "--save_gfix_cfg"){
+      save_gfix_cfg=true;
+      save_gfix_cfg_stub = argv[i+1];
     }else if(sargv == "--disable_evecs"){
       use_evecs = false;
+    }else if(sargv == "--disable_evecs_strange"){
+      use_evecs_strange = false;
     }else if(sargv == "--unit_gauge"){
       unit_gauge = true;
     }
@@ -157,8 +191,8 @@ int main(int argc, char** argv){
   }
 
   //Start calculation
-  std::vector<RealD> eval;
-  std::vector<FermionFieldD> evec;
+  std::vector<RealD> eval, eval_s;
+  std::vector<FermionFieldD> evec, evec_s;
 
   //Start traj loop
   for(int traj = cfg_start; traj < cfg_lessthan; traj += cfg_step){
@@ -170,12 +204,7 @@ int main(int argc, char** argv){
     GridSerialRNG sRNG;  
     sRNG.SeedFixedIntegers(seeds4); 
     
-    std::cout << GridLogMessage << "Creating sources" << std::endl;
-    std::vector<LatticeSCFmatrixD> sources(args.nsrc, UGridD);
-    for(int i=0;i<args.nsrc;i++){    
-      sources[i] = Z2wallSource(src_t[i], pRNG, UGridD);
-    }
-
+    ///////////////////////////////// Read config /////////////////////////////////////////
     if(unit_gauge){
       std::cout << GridLogMessage << "Setting gauge field to unit gauge" << std::endl;
       SU<Nc>::ColdConfiguration(U_d);
@@ -186,17 +215,27 @@ int main(int argc, char** argv){
 	readConfiguration(U_d, sRNG, pRNG, traj, args.cfg_stub, args.rng_stub);
     }
 
+    ///////////////////////////////// Gauge fix ///////////////////////////////////////////
+    if(load_gfix_cfg)
+      readGaugeFixedConfiguration(U_d, load_gfix_cfg_stub, traj);    
+    else
+      CoulombGaugeFix(U_d, args.gfix_alpha, args.gfix_stop_cnd, args.gfix_fourier_accelerate);
+    
+    if(save_gfix_cfg)
+      writeGaugeFixedConfiguration(U_d, save_gfix_cfg_stub, traj);
+
     precisionChange(U_f, U_d);
 
     action_d->ImportGauge(U_d);
     action_f->ImportGauge(U_f);
     action_s_d->ImportGauge(U_d);
     action_s_f->ImportGauge(U_f);
-
+    
+    //////////////////////////////////// Light evecs ///////////////////////////////////////////
     std::vector<RealD> const* eval_ptr = nullptr;
     std::vector<FermionFieldD> const* evec_ptr = nullptr;
     if(use_evecs){
-      std::cout << GridLogMessage << "Obtaining eigenvectors" << std::endl;
+      std::cout << GridLogMessage << "Obtaining light eigenvectors" << std::endl;
       if(load_evecs){
 	readEigenvalues(eval, evec, FrbGridD, load_evals_stub, load_evecs_stub, traj);
       }else{
@@ -207,9 +246,29 @@ int main(int argc, char** argv){
       eval_ptr = &eval;
       evec_ptr = &evec;
     }else{
-      std::cout << GridLogMessage << "Not using eigenvectors" << std::endl;
+      std::cout << GridLogMessage << "Not using light eigenvectors" << std::endl;
     }
 
+    //////////////////////////////////// Strange evecs ///////////////////////////////////////////
+    std::vector<RealD> const* eval_s_ptr = nullptr;
+    std::vector<FermionFieldD> const* evec_s_ptr = nullptr;
+    if(use_evecs_strange){
+      std::cout << GridLogMessage << "Obtaining strange eigenvectors" << std::endl;
+      if(load_evecs_strange){
+	readEigenvalues(eval_s, evec_s, FrbGridD, load_evals_strange_stub, load_evecs_strange_stub, traj);
+      }else{
+	computeEigenvalues<CayleyFermion5D<GparityWilsonImplD>, FermionFieldD>(eval_s, evec_s, args.lanc_args_s, FGridD, FrbGridD, U_d, *action_s_d, pRNG);
+      }
+      if(save_evecs_strange) saveEigenvalues(eval_s, evec_s, save_evals_strange_stub, save_evecs_strange_stub, traj);
+
+      eval_s_ptr = &eval_s;
+      evec_s_ptr = &evec_s;
+
+    }else{
+      std::cout << GridLogMessage << "Not using strange eigenvectors" << std::endl;
+    }
+
+    /////////////////////////////////// Trajectory loop //////////////////////////////////////////
     std::vector<RealD> Ct_pion(Lt, 0);
     std::vector<RealD> Ct_j5q(Lt, 0);
     std::vector<RealD> Ct_kaon(Lt, 0);
@@ -220,9 +279,8 @@ int main(int argc, char** argv){
       int t0 = src_t[s];
       std::cout << GridLogMessage << "Starting calculation with source timeslice t0=" << t0 << std::endl;
 
-      //With real Z2 sources   \sum_{i=1}^nhit \eta^i(\vec x, t) \eta^i(\vec y,t) \approx V\delta_{\vec x,\vec y}
-      //We use nhit=1 here and rely on the cancelation over gauge configurations
-      LatticeSCFmatrixD eta = Z2wallSource(t0, pRNG, UGridD);
+      //Coulomb gauge fixed wall momentum sources
+      LatticeSCFmatrixD eta = wallSource(t0, UGridD);
       LatticeSCFmatrixD src_p1 = p1_src_phase_field * eta;
 
       LatticeSCFmatrixD Rp1(UGridD), Rp1_mid(UGridD);
@@ -235,7 +293,7 @@ int main(int argc, char** argv){
       //Do strange quark also
       std::cout << GridLogMessage << "Starting strange quark inverse" << std::endl;
       LatticeSCFmatrixD Rp1_s(UGridD), Rp1_s_mid(UGridD);
-      mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *action_s_d, *action_s_f, args.cg_stop, args.cg_stop_inner, eval_ptr, evec_ptr); //may as well use same evecs, can't hurt
+      mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *action_s_d, *action_s_f, args.cg_stop, args.cg_stop_inner, eval_s_ptr, evec_s_ptr);
 
       std::vector<RealD> Cts_pion = momWallSourcePionCorrelator(p1, p2, t0, Rp1, Rp2);
       std::vector<RealD> Cts_j5q = momWallSourcePionCorrelator(p1, p2, t0, Rp1_mid, Rp2_mid);

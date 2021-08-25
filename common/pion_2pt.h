@@ -64,7 +64,7 @@ namespace GridMeas{
   //             = C^{-1} \sigma_2 [ \sum_{\vec y_2} e^{i \vec p_2 \cdot \vec y_2} G(\vec x, t; \vec y_2, t_0)\eta(\vec y_2, t_0) ]^T C \sigma_2
   //             = C^{-1} \sigma_2 R(\vec x, t; \vec p_2)^T C \sigma_2
 
-  //Note this will not work for gauge fixed sources
+  //Should think about how this works with gauge fixing matrices in the sources themselves. Currently we just gauge fix the links themselves
 
   std::vector<RealD> momWallSourcePionCorrelator(const std::vector<int> &p1, const std::vector<int> p2, int t0, const LatticeSCFmatrixD& R_p1, const LatticeSCFmatrixD& R_p2){
     std::cout << GridLogMessage << "Starting momentum wall source pion correlator with t0=" << t0 << std::endl;
