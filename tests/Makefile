@@ -37,3 +37,7 @@ test_pion_2pt: test_pion_2pt.cc
 test_kaon_2pt: test_kaon_2pt.cc
 	$(CXX) test_kaon_2pt.cc -c -o test_kaon_2pt.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_kaon_2pt.o -o test_kaon_2pt $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
+test_split_grid_propagator_invert: test_split_grid_propagator_invert.cc
+	$(CXX) test_split_grid_propagator_invert.cc -c -o test_split_grid_propagator_invert.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_split_grid_propagator_invert.o -o test_split_grid_propagator_invert $(CXXFLAGS) $(LDFLAGS) $(LIBS)

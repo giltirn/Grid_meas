@@ -86,6 +86,7 @@ int main(int argc, char** argv){
       readCPSconfiguration(U, sRNG, pRNG, traj, args.cfg_stub) :
       readConfiguration(U, sRNG, pRNG, traj, args.cfg_stub, args.rng_stub);
 
+    std::cout << GridLogMessage << "Starting Wilson Flow measurement" << std::endl;
     auto wflow = WilsonFlowEnergyDensity(args.Nstep, args.epsilon, U);
     asciiWriteArray(wflow, "wflow", traj);
   }

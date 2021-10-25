@@ -118,9 +118,11 @@ int main(int argc, char** argv){
   }else if(!GlobalSharedMemory::WorldRank){
     std::cout << GridLogMessage << " File " << arg_file << " does not exist" << std::endl;
     std::cout << GridLogMessage << " Writing xml template to " << arg_file << ".templ" << std::endl;
-    Grid::XmlWriter wr(arg_file + ".templ");
-    write(wr, "Args", args);
-
+    {
+      Grid::XmlWriter wr(arg_file + ".templ");
+      write(wr, "Args", args);
+    }
+      
     std::cout << GridLogMessage << " Done" << std::endl;
     Grid_finalize();
     return 0;

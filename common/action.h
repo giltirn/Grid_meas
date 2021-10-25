@@ -1,6 +1,7 @@
 #pragma once
 
 #include "defines.h"
+#include "grids.h"
 
 namespace GridMeas{
   using namespace Grid;
@@ -54,5 +55,19 @@ namespace GridMeas{
     };
     return nullptr;
   };
+
+
+  CayleyFermion5D<GparityWilsonImplD>* createActionD(ActionType action,
+						     const GparityWilsonImplD::ImplParams &Params, double mass, double mobius_scale,
+						     LatticeGaugeFieldD &Umu, Grids &Grids){
+    return createActionD(action,Params,mass,mobius_scale,Umu,*Grids.FGrid,*Grids.FrbGrid,*Grids.UGrid,*Grids.UrbGrid);
+  }
+  CayleyFermion5D<GparityWilsonImplF>* createActionF(ActionType action,
+						     const GparityWilsonImplD::ImplParams &Params, double mass, double mobius_scale,
+						     LatticeGaugeFieldF &Umu, Grids &Grids){
+    return createActionF(action,Params,mass,mobius_scale,Umu,*Grids.FGrid,*Grids.FrbGrid,*Grids.UGrid,*Grids.UrbGrid);
+  }
+
+
 
 }
