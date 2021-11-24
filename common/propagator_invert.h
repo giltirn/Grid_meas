@@ -336,6 +336,23 @@ namespace GridMeas{
     splitGridMixedPrecInvertGen(msol, tmp, msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, false, evals, evecs);
   }
   template<typename FermionActionD, typename FermionActionF>
+  void splitGridMixedPrecInvert(LatticeSCFmatrixD &msol,
+				const LatticeSCFmatrixD &msrc,
+				FermionActionD &action_d,
+				FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
+				double tol, double inner_tol,
+				std::vector<Real> const* evals = nullptr, std::vector<FermionFieldD> const * evecs = nullptr){
+    
+    std::vector<LatticeSCFmatrixD> tmp_msrc(1, msrc);
+    std::vector<LatticeSCFmatrixD> tmp_msol;
+    std::vector<LatticeSCFmatrixD> tmp_msol_mid;
+    splitGridMixedPrecInvertGen(tmp_msol, tmp_msol_mid, tmp_msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, false, evals, evecs);
+    msol = tmp_msol[0];
+  }
+
+
+  
+  template<typename FermionActionD, typename FermionActionF>
   void splitGridMixedPrecInvertWithMidProp(std::vector<LatticeSCFmatrixD> &msol, std::vector<LatticeSCFmatrixD> &msol_mid,
 					   const std::vector<LatticeSCFmatrixD> &msrc,
 					   FermionActionD &action_d,
@@ -344,6 +361,26 @@ namespace GridMeas{
 					   std::vector<Real> const* evals = nullptr, std::vector<FermionFieldD> const * evecs = nullptr){
     splitGridMixedPrecInvertGen(msol, msol_mid, msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, true, evals, evecs);
   }
+
+
+  template<typename FermionActionD, typename FermionActionF>
+  void splitGridMixedPrecInvertWithMidProp(LatticeSCFmatrixD &msol, LatticeSCFmatrixD &msol_mid,
+					   const LatticeSCFmatrixD &msrc,
+					   FermionActionD &action_d,
+					   FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
+					   double tol, double inner_tol,
+					   std::vector<Real> const* evals = nullptr, std::vector<FermionFieldD> const * evecs = nullptr){
+    std::vector<LatticeSCFmatrixD> tmp_msrc(1, msrc);
+    std::vector<LatticeSCFmatrixD> tmp_msol;
+    std::vector<LatticeSCFmatrixD> tmp_msol_mid;        
+    splitGridMixedPrecInvertGen(tmp_msol, tmp_msol_mid, tmp_msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, true, evals, evecs);
+    msol = tmp_msol[0];
+    msol_mid = tmp_msol_mid[0];
+  }
+
+
+
+
   
 
 };
