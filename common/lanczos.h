@@ -32,30 +32,30 @@ namespace GridMeas{
 
 
 
-  template<typename FermionActionD, typename FermionFieldD>
+  template<typename FermionAction, typename FermionField, typename LatticeGaugeField>
   void computeEigenvalues(std::vector<RealD> &eval,
-			  std::vector<FermionFieldD> &evec,			
+			  std::vector<FermionField> &evec,			
 			  const LanczosParameters &params,
-			  GridCartesian* Grid, GridRedBlackCartesian* rbGrid, const LatticeGaugeFieldD &latt,  //expect lattice to have been initialized to something
-			  FermionActionD &action, GridParallelRNG &rng){
+			  GridCartesian* Grid, GridRedBlackCartesian* rbGrid, const LatticeGaugeField &latt,  //expect lattice to have been initialized to something
+			  FermionAction &action, GridParallelRNG &rng){
   
-    FermionFieldD gauss_o(rbGrid);
-    FermionFieldD gauss(Grid);
+    FermionField gauss_o(rbGrid);
+    FermionField gauss(Grid);
     gaussian(rng, gauss);
     pickCheckerboard(Odd, gauss_o, gauss);
 
     action.ImportGauge(latt);
 
-    SchurDiagMooeeOperator<FermionActionD, FermionFieldD> hermop(action);
-    PlainHermOp<FermionFieldD> hermop_wrap(hermop);
-    //ChebyshevLanczos<FermionFieldD> Cheb(params.alpha, params.beta, params.mu, params.ord);
+    SchurDiagMooeeOperator<FermionAction, FermionField> hermop(action);
+    PlainHermOp<FermionField> hermop_wrap(hermop);
+    //ChebyshevLanczos<FermionField> Cheb(params.alpha, params.beta, params.mu, params.ord);
     assert(params.mu == 0.0);
 
-    Chebyshev<FermionFieldD> Cheb(params.beta*params.beta, params.alpha*params.alpha, params.ord+1);
-    FunctionHermOp<FermionFieldD> Cheb_wrap(Cheb, hermop);
+    Chebyshev<FermionField> Cheb(params.beta*params.beta, params.alpha*params.alpha, params.ord+1);
+    FunctionHermOp<FermionField> Cheb_wrap(Cheb, hermop);
 
     std::cout << "IRL: alpha=" << params.alpha << " beta=" << params.beta << " mu=" << params.mu << " ord=" << params.ord << std::endl;
-    ImplicitlyRestartedLanczos<FermionFieldD> IRL(Cheb_wrap, hermop_wrap, params.n_stop, params.n_want, params.n_use, params.tolerance, 10000);
+    ImplicitlyRestartedLanczos<FermionField> IRL(Cheb_wrap, hermop_wrap, params.n_stop, params.n_want, params.n_use, params.tolerance, 10000);
 
     eval.resize(params.n_use);
     evec.clear();
@@ -70,9 +70,9 @@ namespace GridMeas{
     }
   }
 
-  template<typename FermionFieldD>
+  template<typename FermionField>
   void saveEigenvalues(const std::vector<RealD> &eval,
-		       const std::vector<FermionFieldD> &evec,
+		       const std::vector<FermionField> &evec,
 		       const std::string &eval_file_stub,
 		       const std::string &evec_file_stub,
 		       const int cfg){
@@ -82,9 +82,9 @@ namespace GridMeas{
     writeFieldArray(evec_file.str(), evec);
   }
 
-  template<typename FermionFieldD>
+  template<typename FermionField>
   void readEigenvalues(std::vector<RealD> &eval,
-		       std::vector<FermionFieldD> &evec,
+		       std::vector<FermionField> &evec,
 		       GridBase* FrbGrid,
 		       const std::string &eval_file_stub,
 		       const std::string &evec_file_stub,

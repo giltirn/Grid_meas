@@ -21,7 +21,8 @@ struct MeasArgs: Serializable {
 				  double, cg_stop_inner,
 				  int, nsrc,
 				  LanczosParameters, lanc_args,
-				  LanczosParameters, lanc_args_s
+				  LanczosParameters, lanc_args_s,
+				  int, evec_prec
 				  );
   MeasArgs() { 
     action = ActionType::DWF;
@@ -38,6 +39,7 @@ struct MeasArgs: Serializable {
     cg_stop = 1e-8;
     cg_stop_inner = 1e-6;
     nsrc = 32;
+    evec_prec = 2; //2=double 1=single
   }
 };
 
@@ -94,6 +96,116 @@ struct ActionsLightStrange{
 };
 
 
+struct EvecContainerOpts{
+  bool load_evecs;
+  std::string load_evecs_stub;
+  std::string load_evals_stub;
+
+  bool save_evecs;
+  std::string save_evecs_stub;
+  std::string save_evals_stub;
+
+  EvecContainerOpts(): load_evecs(false), save_evecs(false){}
+};
+
+struct EvecContainer{
+  std::vector<RealD> * eval_ptr;
+  std::vector<FermionFieldD> * evec_ptr;
+  std::vector<FermionFieldF> * evec_ptr_f;
+  int precision;
+
+  EvecContainer(): eval_ptr(nullptr), evec_ptr(nullptr), evec_ptr_f(nullptr), precision(0){}
+
+  void clear(){
+    if(eval_ptr){ delete eval_ptr; eval_ptr = nullptr; }
+    if(evec_ptr){ delete evec_ptr; evec_ptr = nullptr; }
+    if(evec_ptr_f){ delete evec_ptr_f; evec_ptr_f = nullptr;} 
+  }
+  
+  ~EvecContainer(){
+    clear();
+  }
+
+  //Double prec
+  void generate(const LanczosParameters &lanc_arg, int traj, 
+		Grids &grids, CayleyFermion5D<GparityWilsonImplD> &action, 
+		const LatticeGaugeFieldD &U_d, GridParallelRNG &pRNG, 
+		const EvecContainerOpts &opts= EvecContainerOpts() ){
+    clear();
+    eval_ptr = new std::vector<RealD>();
+    evec_ptr = new std::vector<FermionFieldD>();
+    precision = 2;
+
+    if(opts.load_evecs){
+      readEigenvalues(*eval_ptr, *evec_ptr, grids.FrbGrid, opts.load_evals_stub, opts.load_evecs_stub, traj);
+    }else{
+      computeEigenvalues<CayleyFermion5D<GparityWilsonImplD>, FermionFieldD>(*eval_ptr, *evec_ptr, lanc_arg, grids.FGrid, grids.FrbGrid, U_d, action, pRNG);
+    }
+    if(opts.save_evecs) saveEigenvalues(*eval_ptr, *evec_ptr, opts.save_evals_stub, opts.save_evecs_stub, traj);
+  }
+
+  //Single
+  void generate(const LanczosParameters &lanc_arg, int traj, 
+		Grids &grids, CayleyFermion5D<GparityWilsonImplF> &action, 
+		const LatticeGaugeFieldF &U_f, GridParallelRNG &pRNG, 
+		const EvecContainerOpts &opts= EvecContainerOpts() ){
+    clear();
+    eval_ptr = new std::vector<RealD>();
+    evec_ptr_f = new std::vector<FermionFieldF>();
+    precision = 1;
+
+    if(opts.load_evecs){
+      readEigenvalues(*eval_ptr, *evec_ptr_f, grids.FrbGrid, opts.load_evals_stub, opts.load_evecs_stub, traj);
+    }else{
+      computeEigenvalues<CayleyFermion5D<GparityWilsonImplF>, FermionFieldF>(*eval_ptr, *evec_ptr_f, lanc_arg, grids.FGrid, grids.FrbGrid, U_f, action, pRNG);
+    }
+    if(opts.save_evecs) saveEigenvalues(*eval_ptr, *evec_ptr_f, opts.save_evals_stub, opts.save_evecs_stub, traj);
+  }
+
+  void mixedPrecInvertWithMidProp(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
+				  const LatticeSCFmatrixD &msrc, CayleyFermion5D<GparityWilsonImplD> &action_d, CayleyFermion5D<GparityWilsonImplF> &action_f, 
+				  double tol, double inner_tol){
+    if(precision == 2){
+      std::cout << GridLogMessage << "Inverting using double precision evecs" << std::endl;
+      assert(eval_ptr != nullptr && evec_ptr != nullptr);
+      GridMeas::mixedPrecInvertWithMidProp(prop, midprop, msrc, action_d, action_f, tol, inner_tol, eval_ptr, evec_ptr);
+    }
+    else if(precision == 1){
+      std::cout << GridLogMessage << "Inverting using single precision evecs" << std::endl;
+      assert(eval_ptr != nullptr && evec_ptr_f != nullptr);
+      GridMeas::mixedPrecInvertWithMidProp(prop, midprop, msrc, action_d, action_f, tol, inner_tol, eval_ptr, evec_ptr_f);
+    }
+    else if(precision == 0){ //no evecs
+      std::cout << GridLogMessage << "Inverting without evecs" << std::endl;
+      GridMeas::mixedPrecInvertWithMidProp(prop, midprop, msrc, action_d, action_f, tol, inner_tol);
+    }
+    else assert(0);
+  }
+
+  void splitGridMixedPrecInvertWithMidProp(LatticeSCFmatrixD &msol, LatticeSCFmatrixD &msol_mid,
+					   const LatticeSCFmatrixD &msrc,
+					   CayleyFermion5D<GparityWilsonImplD> &action_d,
+					   CayleyFermion5D<GparityWilsonImplD> &subgrid_action_d, CayleyFermion5D<GparityWilsonImplF> &subgrid_action_f,
+					   double tol, double inner_tol){
+    if(precision == 2){
+      std::cout << GridLogMessage << "Inverting using double precision evecs" << std::endl;
+      assert(eval_ptr != nullptr && evec_ptr != nullptr);
+      GridMeas::splitGridMixedPrecInvertWithMidProp(msol, msol_mid, msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, eval_ptr, evec_ptr);
+    }
+    else if(precision == 1){
+      std::cout << GridLogMessage << "Inverting using single precision evecs" << std::endl;
+      assert(eval_ptr != nullptr && evec_ptr_f != nullptr);
+      GridMeas::splitGridMixedPrecInvertWithMidProp(msol, msol_mid, msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, eval_ptr, evec_ptr_f);
+    }
+    else if(precision == 0){ //no evecs
+      std::cout << GridLogMessage << "Inverting without evecs" << std::endl;
+      GridMeas::splitGridMixedPrecInvertWithMidProp(msol, msol_mid, msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol);
+    }
+    else assert(0);
+  }    
+};
+
+
   
 int main(int argc, char** argv){
   Grid_init(&argc, &argv);
@@ -104,19 +216,9 @@ int main(int argc, char** argv){
   int cfg_start = std::stoi(argv[2]);
   int cfg_lessthan = std::stoi(argv[3]);
   int cfg_step = std::stoi(argv[4]);
+
+  EvecContainerOpts evec_opts_l, evec_opts_s;
  
-  bool load_evecs = false;
-  std::string load_evecs_stub, load_evals_stub;
-
-  bool save_evecs = false;
-  std::string save_evecs_stub, save_evals_stub;
-
-  bool load_evecs_strange = false;
-  std::string load_evecs_strange_stub, load_evals_strange_stub;
-
-  bool save_evecs_strange = false;
-  std::string save_evecs_strange_stub, save_evals_strange_stub;
-
   bool load_gfix_cfg = false;
   std::string load_gfix_cfg_stub;
 
@@ -139,21 +241,21 @@ int main(int argc, char** argv){
     if(sargv == "--cps_cfg"){
       cps_cfg = true;
     }else if(sargv == "--save_evecs"){
-      save_evecs = true;
-      save_evecs_stub = argv[i+1];
-      save_evals_stub = argv[i+2];
+      evec_opts_l.save_evecs = true;
+      evec_opts_l.save_evecs_stub = argv[i+1];
+      evec_opts_l.save_evals_stub = argv[i+2];
     }else if(sargv == "--load_evecs"){
-      load_evecs = true;
-      load_evecs_stub = argv[i+1];
-      load_evals_stub = argv[i+2];
+      evec_opts_l.load_evecs = true;
+      evec_opts_l.load_evecs_stub = argv[i+1];
+      evec_opts_l.load_evals_stub = argv[i+2];
     }else if(sargv == "--save_evecs_strange"){
-      save_evecs_strange = true;
-      save_evecs_strange_stub = argv[i+1];
-      save_evals_strange_stub = argv[i+2];
+      evec_opts_s.save_evecs = true;
+      evec_opts_s.save_evecs_stub = argv[i+1];
+      evec_opts_s.save_evals_stub = argv[i+2];
     }else if(sargv == "--load_evecs_strange"){
-      load_evecs_strange = true;
-      load_evecs_strange_stub = argv[i+1];
-      load_evals_strange_stub = argv[i+2];
+      evec_opts_s.load_evecs = true;
+      evec_opts_s.load_evecs_stub = argv[i+1];
+      evec_opts_s.load_evals_stub = argv[i+2];
     }else if(sargv == "--load_gfix_cfg"){
       load_gfix_cfg=true;
       load_gfix_cfg_stub = argv[i+1];
@@ -198,6 +300,8 @@ int main(int argc, char** argv){
     Grid_finalize();
     return 0;
   }
+
+  assert(args.evec_prec == 2 || args.evec_prec == 1);
 
   printMem("Program body start");
   
@@ -283,8 +387,7 @@ int main(int argc, char** argv){
   }
 
   //Start calculation
-  std::vector<RealD> eval, eval_s;
-  std::vector<FermionFieldD> evec, evec_s;
+  EvecContainer eval, eval_s;
 
   printMem("Pre trajectory loop");
   
@@ -292,8 +395,12 @@ int main(int argc, char** argv){
   for(int traj = cfg_start; traj < cfg_lessthan; traj += cfg_step){
     std::cout << GridLogMessage << "Starting traj " << traj << std::endl;
     std::vector<int> seeds4({traj, traj+2, traj+3, traj+4});
+
     GridParallelRNG pRNG(GridsD.UGrid); //4D!
     pRNG.SeedFixedIntegers(seeds4);
+
+    GridParallelRNG pRNG_f(GridsF.UGrid);
+    pRNG_f.SeedFixedIntegers(seeds4);
     
     GridSerialRNG sRNG;  
     sRNG.SeedFixedIntegers(seeds4); 
@@ -334,42 +441,31 @@ int main(int argc, char** argv){
     printMem("Post gauge field import");
     
     //////////////////////////////////// Light evecs ///////////////////////////////////////////
-    std::vector<RealD> const* eval_ptr = nullptr;
-    std::vector<FermionFieldD> const* evec_ptr = nullptr;
     if(use_evecs){
       std::cout << GridLogMessage << "Obtaining light eigenvectors" << std::endl;
-      if(load_evecs){
-	readEigenvalues(eval, evec, GridsD.FrbGrid, load_evals_stub, load_evecs_stub, traj);
-      }else{
-	computeEigenvalues<CayleyFermion5D<GparityWilsonImplD>, FermionFieldD>(eval, evec, args.lanc_args, GridsD.FGrid, GridsD.FrbGrid, U_d, *actions.light.action_d, pRNG);
-      }
-      if(save_evecs) saveEigenvalues(eval, evec, save_evals_stub, save_evecs_stub, traj);
-
-      eval_ptr = &eval;
-      evec_ptr = &evec;
+      if(args.evec_prec == 2)
+	eval.generate(args.lanc_args, traj, GridsD, *actions.light.action_d, U_d, pRNG, evec_opts_l);
+      else if(args.evec_prec == 1)
+	eval.generate(args.lanc_args, traj, GridsF, *actions.light.action_f, U_f, pRNG_f, evec_opts_l);
+      else assert(0);
     }else{
       std::cout << GridLogMessage << "Not using light eigenvectors" << std::endl;
     }
+
     printMem("Post light evec generation");
 
     //////////////////////////////////// Strange evecs ///////////////////////////////////////////
-    std::vector<RealD> const* eval_s_ptr = nullptr;
-    std::vector<FermionFieldD> const* evec_s_ptr = nullptr;
     if(use_evecs_strange){
       std::cout << GridLogMessage << "Obtaining strange eigenvectors" << std::endl;
-      if(load_evecs_strange){
-	readEigenvalues(eval_s, evec_s, GridsD.FrbGrid, load_evals_strange_stub, load_evecs_strange_stub, traj);
-      }else{
-	computeEigenvalues<CayleyFermion5D<GparityWilsonImplD>, FermionFieldD>(eval_s, evec_s, args.lanc_args_s, GridsD.FGrid, GridsD.FrbGrid, U_d, *actions.strange.action_d, pRNG);
-      }
-      if(save_evecs_strange) saveEigenvalues(eval_s, evec_s, save_evals_strange_stub, save_evecs_strange_stub, traj);
-
-      eval_s_ptr = &eval_s;
-      evec_s_ptr = &evec_s;
-
+      if(args.evec_prec == 2)
+	eval.generate(args.lanc_args, traj, GridsD, *actions.strange.action_d, U_d, pRNG, evec_opts_s);
+      else if(args.evec_prec == 1)
+	eval.generate(args.lanc_args, traj, GridsF, *actions.strange.action_f, U_f, pRNG_f, evec_opts_s);
+      else assert(0);
     }else{
       std::cout << GridLogMessage << "Not using strange eigenvectors" << std::endl;
     }
+
     printMem("Post strange evec generation");
     
     /////////////////////////////////// Trajectory loop //////////////////////////////////////////
@@ -389,23 +485,21 @@ int main(int argc, char** argv){
 
       LatticeSCFmatrixD Rp1(GridsD.UGrid), Rp1_mid(GridsD.UGrid);
       std::cout << GridLogMessage << "Starting light quark inverse" << std::endl;
-      if(use_split_grid){
-	splitGridMixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.action_d,  *actions_sub.light.action_d, *actions_sub.light.action_f, args.cg_stop, args.cg_stop_inner, eval_ptr, evec_ptr);
-      }else{      
-	mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.action_d, *actions.light.action_f, args.cg_stop, args.cg_stop_inner, eval_ptr, evec_ptr);
-      }
-
+      if(use_split_grid)
+	eval.splitGridMixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.action_d,  *actions_sub.light.action_d, *actions_sub.light.action_f, args.cg_stop, args.cg_stop_inner);
+      else
+	eval.mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.action_d, *actions.light.action_f, args.cg_stop, args.cg_stop_inner);
+      
       const LatticeSCFmatrixD &Rp2 = Rp1;
       const LatticeSCFmatrixD &Rp2_mid = Rp1_mid;
 
       //Do strange quark also
       std::cout << GridLogMessage << "Starting strange quark inverse" << std::endl;
       LatticeSCFmatrixD Rp1_s(GridsD.UGrid), Rp1_s_mid(GridsD.UGrid);
-      if(use_split_grid){
-	splitGridMixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.action_d,  *actions_sub.strange.action_d, *actions_sub.strange.action_f, args.cg_stop, args.cg_stop_inner, eval_ptr, evec_ptr);
-      }else{      
-	mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.action_d, *actions.strange.action_f, args.cg_stop, args.cg_stop_inner, eval_s_ptr, evec_s_ptr);
-      }
+      if(use_split_grid)
+	eval_s.splitGridMixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.action_d,  *actions_sub.strange.action_d, *actions_sub.strange.action_f, args.cg_stop, args.cg_stop_inner);
+      else
+	eval_s.mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.action_d, *actions.strange.action_f, args.cg_stop, args.cg_stop_inner);      
 
       std::vector<RealD> Cts_pion = momWallSourcePionCorrelator(p1, p2, t0, Rp1, Rp2);
       std::vector<RealD> Cts_j5q = momWallSourcePionCorrelator(p1, p2, t0, Rp1_mid, Rp2_mid);

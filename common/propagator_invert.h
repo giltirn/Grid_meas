@@ -88,6 +88,7 @@ namespace GridMeas{
   template<typename FieldTypeD>
   struct _get_guesser<FieldTypeD, FieldTypeD, 2>{    
     inline static LinearFunction<FieldTypeD>* get(std::vector<Real> const& evals, std::vector<FieldTypeD> const &evecs){
+      std::cout << GridLogMessage << "Using double precision guesser" << std::endl;
       return new DeflatedGuesser<FieldTypeD>(evecs, evals);
     }
   };
@@ -95,6 +96,7 @@ namespace GridMeas{
   template<typename FieldTypeF, typename FieldTypeD>
   struct _get_guesser<FieldTypeF, FieldTypeD, 1>{
     inline static LinearFunction<FieldTypeD>* get(std::vector<Real> const& evals, std::vector<FieldTypeF> const &evecs){
+      std::cout << GridLogMessage << "Using mixed precision guesser" << std::endl;
       return new MixedPrecDeflatedGuesser<FieldTypeF,FieldTypeD>(evecs, evals);
     }
   };
@@ -103,65 +105,6 @@ namespace GridMeas{
   inline LinearFunction<FieldTypeD>* getGuesser(std::vector<Real> const& evals, std::vector<EvecFieldType> const &evecs){
     return _get_guesser<EvecFieldType, FieldTypeD, getPrecision<EvecFieldType>::value>::get(evals, evecs);
   }
-
-  
-  template<typename FermionActionD, typename FermionActionF>
-  LatticeSCFmatrixD mixedPrecInvert(const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, double tol, double inner_tol,
-				    std::vector<Real> const* evals = nullptr, std::vector<FermionFieldD> const * evecs = nullptr){
-    std::cout << GridLogMessage << "Starting source inversion" << std::endl;
-    SchurDiagMooeeOperator<FermionActionD,FermionFieldD> hermop_d(action_d);
-    SchurDiagMooeeOperator<FermionActionF,FermionFieldF> hermop_f(action_f);
-  
-    MixedPrecisionConjugateGradient<FermionFieldD, FermionFieldF> mcg(tol, 10000,10000, action_f.FermionRedBlackGrid(), hermop_f, hermop_d);
-    mcg.InnerTolerance = inner_tol;
-    MixedCGwrapper mcg_wrap(mcg);
-  
-    LinearFunction<FermionFieldD> *guesser = nullptr;
-    if(evecs != nullptr && evals != nullptr)
-      guesser = getGuesser<FermionFieldD>(*evals,*evecs);
-
-    //ConjugateGradient<FermionField> CG(tol,10000);
-    SchurRedBlackDiagMooeeSolve<FermionFieldD> solver(mcg_wrap);
-  
-    GridBase* FGridD = action_d.FermionGrid();
-
-    FermionFieldD src_5d(FGridD);
-    FermionFieldD sol_5d(FGridD);
-  
-    FermionFieldD sol_4d(msrc.Grid());
-    LatticeSCFmatrixD msol(msrc.Grid());
-
-    //Columns of the matrix are the source vectors
-    for(int f=0;f<Ngp;f++){
-      for(int s=0;s<Ns;s++){
-	for(int c=0;c<Nc;c++){
-	  std::cout << GridLogMessage << "Starting f="<< f << " s=" << s << " c=" << c << " inversion" << std::endl;
-	  std::cout << GridLogMessage << "Extracting source matrix column" << std::endl;
-	  FermionFieldD src_4d = extractColumn(msrc, f,s,c);
-	  std::cout << GridLogMessage << "Generating 5D source" << std::endl;
-	  action_d.ImportPhysicalFermionSource(src_4d, src_5d);
-
-	  std::cout << GridLogMessage << "Inverting" << std::endl;
-	  guesser != nullptr ? 
-	    solver(action_d, src_5d, sol_5d, *guesser) 
-	    : 
-	    solver(action_d, src_5d, sol_5d);
-	
-	  std::cout << GridLogMessage << "Generating 4D solution" << std::endl;
-	  action_d.ExportPhysicalFermionSolution(sol_5d, sol_4d);
-	
-	  std::cout << GridLogMessage << "Extracting solution matrix column" << std::endl;
-	  insertColumn(msol, sol_4d, f,s,c);
-	}
-      }
-    }
-
-    if(guesser) delete guesser;
-    std::cout << GridLogMessage << "Source inversion complete" << std::endl;
-
-    return msol;
-  }
-
 
   //The midpoint propagator
   //\phi(x) = + P_L \psi(x,Ls/2) + P_R \psi(x,Ls/2-1) 
@@ -185,22 +128,24 @@ namespace GridMeas{
     return p;
   }
 
-
-  void mixedPrecInvertWithMidProp(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
-				  const LatticeSCFmatrixD &msrc, CayleyFermion5D<GparityWilsonImplD> &action_d, CayleyFermion5D<GparityWilsonImplF> &action_f, 
-				  double tol, double inner_tol,
-				  std::vector<Real> const* evals = nullptr, std::vector<FermionFieldD> const * evecs = nullptr){
+  //General mixed prec inverter with optional midprop
+  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
+  void mixedPrecInvertGen(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
+			  const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, 
+			  double tol, double inner_tol,
+			  bool do_midprop,
+			  std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
     std::cout << GridLogMessage << "Starting source inversion" << std::endl;
-    SchurDiagMooeeOperator<CayleyFermion5D<GparityWilsonImplD>,FermionFieldD> hermop_d(action_d);
-    SchurDiagMooeeOperator<CayleyFermion5D<GparityWilsonImplF>,FermionFieldF> hermop_f(action_f);
+    SchurDiagMooeeOperator<FermionActionD,FermionFieldD> hermop_d(action_d);
+    SchurDiagMooeeOperator<FermionActionF,FermionFieldF> hermop_f(action_f);
   
     MixedPrecisionConjugateGradient<FermionFieldD, FermionFieldF> mcg(tol, 10000,10000, action_f.FermionRedBlackGrid(), hermop_f, hermop_d);
     mcg.InnerTolerance = inner_tol;
     MixedCGwrapper mcg_wrap(mcg);
-  
-    DeflatedGuesser<FermionFieldD> *guesser = nullptr;
+
+    LinearFunction<FermionFieldD> *guesser = nullptr;
     if(evecs != nullptr && evals != nullptr)
-      guesser = new DeflatedGuesser<FermionFieldD>(*evecs, *evals);
+      guesser = getGuesser<FermionFieldD>(*evals,*evecs);
 
     //ConjugateGradient<FermionField> CG(tol,10000);
     SchurRedBlackDiagMooeeSolve<FermionFieldD> solver(mcg_wrap);
@@ -212,7 +157,7 @@ namespace GridMeas{
   
     FermionFieldD sol_4d(msrc.Grid());
     conformable(msrc.Grid(), prop.Grid());
-    conformable(msrc.Grid(), midprop.Grid());
+    if(do_midprop) conformable(msrc.Grid(), midprop.Grid());
 
     //Columns of the matrix are the source vectors
     for(int f=0;f<Ngp;f++){
@@ -236,11 +181,13 @@ namespace GridMeas{
 	  std::cout << GridLogMessage << "Extracting solution matrix column" << std::endl;
 	  insertColumn(prop, sol_4d, f,s,c);
 
-	  std::cout << GridLogMessage << "Generating 4D midpoint solution" << std::endl;
-	  sol_4d = extractMidProp(sol_5d, action_d);
-
-	  std::cout << GridLogMessage << "Extracting solution midpoint matrix column" << std::endl;
-	  insertColumn(midprop, sol_4d, f,s,c);	  
+	  if(do_midprop){
+	    std::cout << GridLogMessage << "Generating 4D midpoint solution" << std::endl;
+	    sol_4d = extractMidProp(sol_5d, action_d);
+	    
+	    std::cout << GridLogMessage << "Extracting solution midpoint matrix column" << std::endl;
+	    insertColumn(midprop, sol_4d, f,s,c);	  
+	  }
 	}
       }
     }
@@ -249,7 +196,35 @@ namespace GridMeas{
     std::cout << GridLogMessage << "Source inversion complete" << std::endl;
   }
 
+  //No midprop, with evecs
+  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
+  LatticeSCFmatrixD mixedPrecInvert(const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, double tol, double inner_tol,
+				    std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
+    LatticeSCFmatrixD tmp(msrc.Grid()), prop(msrc.Grid());
+    mixedPrecInvertGen(prop,tmp,msrc,action_d,action_f,tol,inner_tol,false,evals,evecs);
+    return prop;
+  }
+  //No midprop, no evecs
+  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
+  LatticeSCFmatrixD mixedPrecInvert(const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, double tol, double inner_tol){
+    return mixedPrecInvert(msrc,action_d,action_f,tol,inner_tol,(std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
+  }
 
+
+  //With midprop and evecs
+  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
+  void mixedPrecInvertWithMidProp(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
+				  const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, 
+				  double tol, double inner_tol,
+				  std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
+    mixedPrecInvertGen(prop,midprop,msrc,action_d,action_f,tol,inner_tol,true,evals,evecs);
+  }    
+  //With midprop, no evecs
+  void mixedPrecInvertWithMidProp(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
+				  const LatticeSCFmatrixD &msrc, CayleyFermion5D<GparityWilsonImplD> &action_d, CayleyFermion5D<GparityWilsonImplF> &action_f, 
+				  double tol, double inner_tol){
+    mixedPrecInvertWithMidProp(prop, midprop, msrc, action_d, action_f, tol, inner_tol, (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
+  }
 
 
 
@@ -261,14 +236,14 @@ namespace GridMeas{
   //subgrid_action_f must be defined on the subgrids
   //subgrids_f must be the single precision subgrids
   //if do_midprop = true the msol_midprop output will be populated with the midpoint solutions
-  template<typename FermionActionD, typename FermionActionF>
+  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
   void splitGridMixedPrecInvertGen(std::vector<LatticeSCFmatrixD> &msol, std::vector<LatticeSCFmatrixD> &msol_midprop,
-				const std::vector<LatticeSCFmatrixD> &msrc,
-				FermionActionD &action_d,
-				FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
-				double tol, double inner_tol,
-				bool do_midprop,
-				std::vector<Real> const* evals = nullptr, std::vector<FermionFieldD> const * evecs = nullptr){
+				   const std::vector<LatticeSCFmatrixD> &msrc,
+				   FermionActionD &action_d,
+				   FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
+				   double tol, double inner_tol,
+				   bool do_midprop,
+				   std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
     int Nsrc = msrc.size();
     
     //Setup outputs
@@ -285,9 +260,9 @@ namespace GridMeas{
     std::cout << GridLogMessage << "Starting split Grid inversion with " << Nsubgrids << " subgrids" << std::endl;
     
     //Setup deflation
-    DeflatedGuesser<FermionFieldD> *guesser = nullptr;
+    LinearFunction<FermionFieldD> *guesser = nullptr;
     if(evecs != nullptr && evals != nullptr)
-      guesser = new DeflatedGuesser<FermionFieldD>(*evecs, *evals);
+      guesser = getGuesser<FermionFieldD>(*evals,*evecs);
 
     bool deflate = guesser != nullptr;
     
@@ -378,23 +353,36 @@ namespace GridMeas{
     if(deflate) delete guesser;	
   }
 
-  template<typename FermionActionD, typename FermionActionF>
+  //Multi-src, no midprop
+  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
   void splitGridMixedPrecInvert(std::vector<LatticeSCFmatrixD> &msol,
 				const std::vector<LatticeSCFmatrixD> &msrc,
 				FermionActionD &action_d,
 				FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
 				double tol, double inner_tol,
-				std::vector<Real> const* evals = nullptr, std::vector<FermionFieldD> const * evecs = nullptr){
+				std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
     std::vector<LatticeSCFmatrixD> tmp;
     splitGridMixedPrecInvertGen(msol, tmp, msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, false, evals, evecs);
   }
+  //Multi-src, no midprop, no evecs
   template<typename FermionActionD, typename FermionActionF>
+  void splitGridMixedPrecInvert(std::vector<LatticeSCFmatrixD> &msol,
+				const std::vector<LatticeSCFmatrixD> &msrc,
+				FermionActionD &action_d,
+				FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
+				double tol, double inner_tol){
+    splitGridMixedPrecInvert(msol, msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
+  }
+
+
+  //Single-src, no midprop
+  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
   void splitGridMixedPrecInvert(LatticeSCFmatrixD &msol,
 				const LatticeSCFmatrixD &msrc,
 				FermionActionD &action_d,
 				FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
 				double tol, double inner_tol,
-				std::vector<Real> const* evals = nullptr, std::vector<FermionFieldD> const * evecs = nullptr){
+				std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
     
     std::vector<LatticeSCFmatrixD> tmp_msrc(1, msrc);
     std::vector<LatticeSCFmatrixD> tmp_msol;
@@ -402,33 +390,62 @@ namespace GridMeas{
     splitGridMixedPrecInvertGen(tmp_msol, tmp_msol_mid, tmp_msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, false, evals, evecs);
     msol = tmp_msol[0];
   }
-
-
-  
+  //Single-src, no midprop, no evecs
   template<typename FermionActionD, typename FermionActionF>
+  void splitGridMixedPrecInvert(LatticeSCFmatrixD &msol,
+				const LatticeSCFmatrixD &msrc,
+				FermionActionD &action_d,
+				FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
+				double tol, double inner_tol){
+    splitGridMixedPrecInvert(msol,msrc,action_d,subgrid_action_d,subgrid_action_f,tol,inner_tol,(std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
+  }
+				
+
+
+  //Multi-src with midprop
+  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
   void splitGridMixedPrecInvertWithMidProp(std::vector<LatticeSCFmatrixD> &msol, std::vector<LatticeSCFmatrixD> &msol_mid,
 					   const std::vector<LatticeSCFmatrixD> &msrc,
 					   FermionActionD &action_d,
 					   FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
 					   double tol, double inner_tol,
-					   std::vector<Real> const* evals = nullptr, std::vector<FermionFieldD> const * evecs = nullptr){
+					   std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
     splitGridMixedPrecInvertGen(msol, msol_mid, msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, true, evals, evecs);
+  }
+  //Multi-src with midprop, no evecs
+  template<typename FermionActionD, typename FermionActionF>
+  void splitGridMixedPrecInvertWithMidProp(std::vector<LatticeSCFmatrixD> &msol, std::vector<LatticeSCFmatrixD> &msol_mid,
+					   const std::vector<LatticeSCFmatrixD> &msrc,
+					   FermionActionD &action_d,
+					   FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
+					   double tol, double inner_tol){
+    splitGridMixedPrecInvertWithMidProp(msol,msol_mid,msrc,action_d,subgrid_action_d,subgrid_action_f,tol,inner_tol,(std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
   }
 
 
-  template<typename FermionActionD, typename FermionActionF>
+  //Single-src with midprop
+  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
   void splitGridMixedPrecInvertWithMidProp(LatticeSCFmatrixD &msol, LatticeSCFmatrixD &msol_mid,
 					   const LatticeSCFmatrixD &msrc,
 					   FermionActionD &action_d,
 					   FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
 					   double tol, double inner_tol,
-					   std::vector<Real> const* evals = nullptr, std::vector<FermionFieldD> const * evecs = nullptr){
+					   std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
     std::vector<LatticeSCFmatrixD> tmp_msrc(1, msrc);
     std::vector<LatticeSCFmatrixD> tmp_msol;
     std::vector<LatticeSCFmatrixD> tmp_msol_mid;        
     splitGridMixedPrecInvertGen(tmp_msol, tmp_msol_mid, tmp_msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, true, evals, evecs);
     msol = tmp_msol[0];
     msol_mid = tmp_msol_mid[0];
+  }
+  //Single-src with midprop, no evecs
+  template<typename FermionActionD, typename FermionActionF>
+  void splitGridMixedPrecInvertWithMidProp(LatticeSCFmatrixD &msol, LatticeSCFmatrixD &msol_mid,
+					   const LatticeSCFmatrixD &msrc,
+					   FermionActionD &action_d,
+					   FermionActionD &subgrid_action_d, FermionActionF &subgrid_action_f,
+					   double tol, double inner_tol){
+    splitGridMixedPrecInvertWithMidProp(msol,msol_mid,msrc,action_d,subgrid_action_d,subgrid_action_f,tol,inner_tol, (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
   }
 
 
