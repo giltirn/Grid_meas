@@ -271,12 +271,15 @@ int main(int argc, char** argv){
   printMem("Post phase factor generation");
   
   //Wall source timeslices
-  assert(Lt % args.nsrc == 0);
-  int tsep = Lt / args.nsrc;
   std::vector<int> src_t(args.nsrc);
-  for(int i=0;i<args.nsrc;i++){    
-    int t = i * tsep;
-    src_t[i] = t;
+  if(args.nsrc != 0){ //allow 0 as we might want to just generate and save the eigenvectors / gfix config  
+    assert(Lt % args.nsrc == 0);
+    int tsep = Lt / args.nsrc;
+  
+    for(int i=0;i<args.nsrc;i++){    
+      int t = i * tsep;
+      src_t[i] = t;
+    }
   }
 
   //Start calculation
@@ -420,11 +423,13 @@ int main(int argc, char** argv){
       printMem("Post measurement");      
     }
 
-    asciiWriteArray(Ct_pion, "pion_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
-    asciiWriteArray(Ct_j5q, "j5q_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
-    asciiWriteArray(Ct_ps_singlet, "ps_singlet_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
-    asciiWriteArray(Ct_kaon, "kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
-    asciiWriteArray(Ct_j5q_kaon, "j5q_kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    if(args.nsrc != 0){
+      asciiWriteArray(Ct_pion, "pion_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+      asciiWriteArray(Ct_j5q, "j5q_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+      asciiWriteArray(Ct_ps_singlet, "ps_singlet_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+      asciiWriteArray(Ct_kaon, "kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+      asciiWriteArray(Ct_j5q_kaon, "j5q_kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    }
   }
 
   std::cout << GridLogMessage << " Done" << std::endl;
