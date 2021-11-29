@@ -51,7 +51,60 @@ namespace GridMeas{
       mcg(in, out);
     }
   };
+  
+  //Guesser using single precision eigenvectors
+  template<class FieldF, class FieldD>
+  class MixedPrecDeflatedGuesser: public LinearFunction<FieldD> {
+  private:
+    const std::vector<FieldF> &evec;
+    const std::vector<RealD> &eval;
     
+  public:
+    
+    MixedPrecDeflatedGuesser(const std::vector<FieldF> & _evec,const std::vector<RealD> & _eval) : evec(_evec), eval(_eval) {};
+    
+    virtual void operator()(const FieldD &src,FieldD &guess) {
+      assert(evec.size() > 0);
+      assert(evec.size()==eval.size());
+      auto N = evec.size();
+      FieldF src_f(evec[0].Grid()), guess_f(evec[0].Grid());
+      precisionChange(src_f, src);
+      guess_f = Zero();
+      
+      for (int i=0;i<N;i++) {
+	const FieldF& tmp = evec[i];
+	axpy(guess_f,TensorRemove(innerProduct(tmp,src_f)) / eval[i],tmp,guess_f);
+      }
+      precisionChange(guess, guess_f);
+      guess.Checkerboard() = src.Checkerboard();
+    }
+  };
+
+
+
+  template<typename EvecFieldType, typename FieldTypeD, int prec>
+  struct _get_guesser{};
+
+  template<typename FieldTypeD>
+  struct _get_guesser<FieldTypeD, FieldTypeD, 2>{    
+    inline static LinearFunction<FieldTypeD>* get(std::vector<Real> const& evals, std::vector<FieldTypeD> const &evecs){
+      return new DeflatedGuesser<FieldTypeD>(evecs, evals);
+    }
+  };
+
+  template<typename FieldTypeF, typename FieldTypeD>
+  struct _get_guesser<FieldTypeF, FieldTypeD, 1>{
+    inline static LinearFunction<FieldTypeD>* get(std::vector<Real> const& evals, std::vector<FieldTypeF> const &evecs){
+      return new MixedPrecDeflatedGuesser<FieldTypeF,FieldTypeD>(evecs, evals);
+    }
+  };
+
+  template<typename FieldTypeD, typename EvecFieldType>
+  inline LinearFunction<FieldTypeD>* getGuesser(std::vector<Real> const& evals, std::vector<EvecFieldType> const &evecs){
+    return _get_guesser<EvecFieldType, FieldTypeD, getPrecision<EvecFieldType>::value>::get(evals, evecs);
+  }
+
+  
   template<typename FermionActionD, typename FermionActionF>
   LatticeSCFmatrixD mixedPrecInvert(const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, double tol, double inner_tol,
 				    std::vector<Real> const* evals = nullptr, std::vector<FermionFieldD> const * evecs = nullptr){
@@ -63,9 +116,9 @@ namespace GridMeas{
     mcg.InnerTolerance = inner_tol;
     MixedCGwrapper mcg_wrap(mcg);
   
-    DeflatedGuesser<FermionFieldD> *guesser = nullptr;
+    LinearFunction<FermionFieldD> *guesser = nullptr;
     if(evecs != nullptr && evals != nullptr)
-      guesser = new DeflatedGuesser<FermionFieldD>(*evecs, *evals);
+      guesser = getGuesser<FermionFieldD>(*evals,*evecs);
 
     //ConjugateGradient<FermionField> CG(tol,10000);
     SchurRedBlackDiagMooeeSolve<FermionFieldD> solver(mcg_wrap);
