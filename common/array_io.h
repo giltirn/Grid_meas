@@ -55,6 +55,14 @@ namespace GridMeas{
     BinaryIO::be64toh_v((void*)data.data(), size * 8);
   }
 
+  //Write a real number to plain text
+  void asciiWriteValue(const RealD data, const std::string &stub, const int traj){
+    std::string filename = stub + "." + std::to_string(traj);
+    std::ofstream of(filename);
+    of.precision(17);
+    of << data << std::endl;
+  }
+
   //Write a real array to plain text on the same line
   void asciiWriteArray(const std::vector<RealD> &data, const std::string &stub, const int traj){
     std::string filename = stub + "." + std::to_string(traj);

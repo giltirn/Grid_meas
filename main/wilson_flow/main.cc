@@ -69,6 +69,7 @@ int main(int argc, char** argv){
   ConjugateGimplD::setDirections(dirs4); //gauge BC
 
   LatticeGaugeFieldD U(UGrid);
+  LatticeGaugeFieldD V(UGrid); //smeared
 
   //Start traj loop
   for(int traj = cfg_start; traj < cfg_lessthan; traj += cfg_step){
@@ -87,8 +88,14 @@ int main(int argc, char** argv){
       readConfiguration(U, sRNG, pRNG, traj, args.cfg_stub, args.rng_stub);
 
     std::cout << GridLogMessage << "Starting Wilson Flow measurement" << std::endl;
-    auto wflow = WilsonFlowEnergyDensity(args.Nstep, args.epsilon, U);
+    auto wflow = WilsonFlowEnergyDensity(args.Nstep, args.epsilon, U, &V);
     asciiWriteArray(wflow, "wflow", traj);
+
+    auto topq5li_contribs = topologicalCharge5LiContributions(V);
+    asciiWriteArray(topq5li_contribs, "topq5li_contribs", traj);
+    
+    RealD topq5li = topologicalCharge5Li(topq5li_contribs);
+    asciiWriteValue(topq5li, "topq5li", traj);
   }
 
   std::cout << GridLogMessage << " Done" << std::endl;
