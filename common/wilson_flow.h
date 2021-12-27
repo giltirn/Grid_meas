@@ -10,7 +10,7 @@ namespace GridMeas{
   //If V != nullptr, the smeared field is placed in V
   std::vector<std::pair<RealD,RealD> > WilsonFlowEnergyDensity(const int Nstep, const double epsilon, const LatticeGaugeFieldD &U, LatticeGaugeFieldD *V = nullptr){
     WilsonFlow<ConjugateGimplD> wflow(Nstep, epsilon);
-    std::vector<RealD> vals = V != nullptr ? wflow.flowMeasureEnergyDensityPlaquette(*V,U) : wflow.flowMeasureEnergyDensityPlaquette(U);
+    std::vector<RealD> vals = V != nullptr ? wflow.flowMeasureEnergyDensityCloverleaf(*V,U) : wflow.flowMeasureEnergyDensityCloverleaf(U);
     assert(vals.size() == Nstep );
     std::vector<std::pair<RealD, RealD> > out(Nstep);
     for(int i=0;i<Nstep;i++){
