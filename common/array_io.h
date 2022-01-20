@@ -86,7 +86,19 @@ namespace GridMeas{
     }
   }
 
+  //Write a real array-of-arrays to plain text with all data for a given outer index on the same line
+  void asciiWriteArray(const std::vector<std::vector<RealD> > &data, const std::string &stub, const int traj){
+    std::string filename = stub + "." + std::to_string(traj);
+    std::ofstream of(filename);
+    of.precision(17);
 
+    for(int i=0;i<data.size();i++){
+      for(int t=0;t<data[i].size();t++){
+	of << data[i][t] << (t < data.size() - 1 ? " " : "");
+      }
+      of << std::endl;
+    }
+  }
 
   bool fileExists(const std::string &fn){
     std::ifstream f(fn);

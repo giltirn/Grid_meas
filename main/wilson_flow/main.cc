@@ -91,9 +91,15 @@ int main(int argc, char** argv){
     auto wflow = WilsonFlowEnergyDensity(args.Nstep, args.epsilon, U, &V);
     asciiWriteArray(wflow, "wflow", traj);
 
-    auto topq5li_contribs = topologicalCharge5LiContributions(V);
+    std::vector<std::vector<Real> > tslice_topq5li_contribs = timesliceTopologicalCharge5LiContributions(V);
+    asciiWriteArray(tslice_topq5li_contribs, "timeslice_topq5li_contribs", traj);
+
+    std::vector<Real> tslice_topq5li = timesliceTopologicalCharge5Li(tslice_topq5li_contribs);
+    asciiWriteArray(tslice_topq5li, "timeslice_topq5li", traj);
+
+    std::vector<Real> topq5li_contribs = topologicalCharge5LiContributions(tslice_topq5li_contribs);
     asciiWriteArray(topq5li_contribs, "topq5li_contribs", traj);
-    
+   
     RealD topq5li = topologicalCharge5Li(topq5li_contribs);
     asciiWriteValue(topq5li, "topq5li", traj);
   }
