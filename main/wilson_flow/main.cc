@@ -10,15 +10,34 @@ struct MeasArgs: Serializable {
 				  std::string, cfg_stub,
 				  std::string, rng_stub,
 				  int, Nstep,
-				  RealD, epsilon );
+				  RealD, epsilon,
+				  int, topq_meas_freq);
   MeasArgs() { 
     GparityDirs = {1,0,0};
     cfg_stub = "ckpoint_lat";
     rng_stub = "ckpoint_rng";
     Nstep = 100;
     epsilon = 0.01;
+    topq_meas_freq=20;
   }
 };
+
+//Line format:
+//tau Q[0] Q[1] ... Q[Lt-1]
+//where tau is the Wilson flow time 
+void writeTsliceTopQsmr(const std::vector<std::pair<RealD,std::vector<RealD> > > &data,
+			const std::string &stub, const int traj){
+    std::string filename = stub + "." + std::to_string(traj);
+    std::ofstream of(filename);
+    of.precision(17);
+
+    for(int t=0;t<data.size();t++){
+      of << data[t].first;
+      for(int tt=0;tt<data[t].second.size();tt++)
+	of << " " << data[t].second[tt];
+      of << std::endl;
+    }
+}
 
 int main(int argc, char** argv){
   Grid_init(&argc, &argv);
@@ -87,9 +106,15 @@ int main(int argc, char** argv){
       readCPSconfiguration(U, sRNG, pRNG, traj, args.cfg_stub) :
       readConfiguration(U, sRNG, pRNG, traj, args.cfg_stub, args.rng_stub);
 
+    std::vector<std::pair<RealD,RealD> > wflow;
+    std::vector<std::pair<RealD,std::vector<RealD> > > tslice_topq5li_int; //Q[t] during smearing
+
     std::cout << GridLogMessage << "Starting Wilson Flow measurement" << std::endl;
-    auto wflow = WilsonFlowEnergyDensity(args.Nstep, args.epsilon, U, &V);
+    WilsonFlowEnergyDensityAndTimesliceTopQ(wflow, tslice_topq5li_int, args.Nstep, args.epsilon, args.topq_meas_freq, U, &V);
+
+    //auto wflow = WilsonFlowEnergyDensity(args.Nstep, args.epsilon, U, &V);
     asciiWriteArray(wflow, "wflow", traj);
+    writeTsliceTopQsmr(tslice_topq5li_int, "timeslice_topq5li_smr", traj);
 
     std::vector<std::vector<Real> > tslice_topq5li_contribs = timesliceTopologicalCharge5LiContributions(V);
     asciiWriteArray(tslice_topq5li_contribs, "timeslice_topq5li_contribs", traj);
