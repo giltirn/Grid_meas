@@ -106,6 +106,11 @@ int main(int argc, char** argv){
       readCPSconfiguration(U, sRNG, pRNG, traj, args.cfg_stub) :
       readConfiguration(U, sRNG, pRNG, traj, args.cfg_stub, args.rng_stub);
 
+    //Timeslice plaquette
+    auto tslice_plaq = WilsonLoops<ConjugateGimplD>::timesliceAvgSpatialPlaquette(U);
+    asciiWriteArray(tslice_plaq, "timeslice_plaq", traj);   
+
+    //Do Wilson flow and measure topological charge along the way
     std::vector<std::pair<RealD,RealD> > wflow;
     std::vector<std::pair<RealD,std::vector<RealD> > > tslice_topq5li_int; //Q[t] during smearing
 
@@ -116,6 +121,7 @@ int main(int argc, char** argv){
     asciiWriteArray(wflow, "wflow", traj);
     writeTsliceTopQsmr(tslice_topq5li_int, "timeslice_topq5li_smr", traj);
 
+    //Measure topological charge
     std::vector<std::vector<Real> > tslice_topq5li_contribs = timesliceTopologicalCharge5LiContributions(V);
     asciiWriteArray(tslice_topq5li_contribs, "timeslice_topq5li_contribs", traj);
 
