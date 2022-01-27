@@ -11,20 +11,22 @@ struct MeasArgs: Serializable {
 				  std::string, rng_stub,
 				  int, Nstep,
 				  RealD, epsilon,
-				  int, topq_meas_freq);
+				  int, tslice_topq_meas_freq,
+				  int, tslice_plaq_meas_freq);
   MeasArgs() { 
     GparityDirs = {1,0,0};
     cfg_stub = "ckpoint_lat";
     rng_stub = "ckpoint_rng";
     Nstep = 100;
     epsilon = 0.01;
-    topq_meas_freq=20;
+    tslice_topq_meas_freq=20; //timeslice topq
+    tslice_plaq_meas_freq=20; //timeslice plaq
   }
 };
 
 //Line format:
 //tau Q[0] Q[1] ... Q[Lt-1]
-//where tau is the Wilson flow time 
+//where tau is the Wilson flow time (or timeslice plaquette)
 void writeTsliceTopQsmr(const std::vector<std::pair<RealD,std::vector<RealD> > > &data,
 			const std::string &stub, const int traj){
     std::string filename = stub + "." + std::to_string(traj);
@@ -110,16 +112,22 @@ int main(int argc, char** argv){
     auto tslice_plaq = WilsonLoops<ConjugateGimplD>::timesliceAvgSpatialPlaquette(U);
     asciiWriteArray(tslice_plaq, "timeslice_plaq", traj);   
 
-    //Do Wilson flow and measure topological charge along the way
-    std::vector<std::pair<RealD,RealD> > wflow;
-    std::vector<std::pair<RealD,std::vector<RealD> > > tslice_topq5li_int; //Q[t] during smearing
-
+    //Setup measurements to perform during the smearing
+    WilsonFlowIO wflow_io;
+    wflow_io.do_energy_density_clover = true;
+    wflow_io.do_energy_density_plaq = true;
+    wflow_io.do_timeslice_topq = true;
+    wflow_io.do_timeslice_plaq = true;
+    wflow_io.timeslice_topq_meas_freq = args.tslice_topq_meas_freq;
+    wflow_io.timeslice_plaq_meas_freq = args.tslice_plaq_meas_freq;
+    
     std::cout << GridLogMessage << "Starting Wilson Flow measurement" << std::endl;
-    WilsonFlowEnergyDensityAndTimesliceTopQ(wflow, tslice_topq5li_int, args.Nstep, args.epsilon, args.topq_meas_freq, U, &V);
-
-    //auto wflow = WilsonFlowEnergyDensity(args.Nstep, args.epsilon, U, &V);
-    asciiWriteArray(wflow, "wflow", traj);
-    writeTsliceTopQsmr(tslice_topq5li_int, "timeslice_topq5li_smr", traj);
+    WilsonFlowMeasGeneral(wflow_io, args.Nstep, args.epsilon, U, &V);
+	
+    asciiWriteArray(wflow_io.energy_density_clover, "wflow_clover", traj);
+    asciiWriteArray(wflow_io.energy_density_plaq, "wflow_plaq", traj);
+    writeTsliceTopQsmr(wflow_io.timeslice_topq, "timeslice_topq5li_smr", traj);
+    writeTsliceTopQsmr(wflow_io.timeslice_plaq, "timeslice_plaq_smr", traj);
 
     //Measure topological charge
     std::vector<std::vector<Real> > tslice_topq5li_contribs = timesliceTopologicalCharge5LiContributions(V);
