@@ -65,13 +65,19 @@ namespace GridMeas{
   //NOTE: the source *must* have flavor structure  
   // | phi   0   |
   // |  0   phi* |  
-  //where phi is a spin-color matrix
+  //where phi is a spin-color matrix that commutes with X=C g5  
   template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
   void mixedPrecInvertGenXconj(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
 			       const LatticeSCFmatrixD &msrc, FermionActionD &xconj_action_d, FermionActionF &xconj_action_f, 
 			       double tol, double inner_tol,
 			       bool do_midprop,
 			       std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
+    static Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
+    static Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
+    static Gamma X = C*g5;
+    static GparityFlavour sigma1 = GparityFlavour(GparityFlavour::Algebra::SigmaX);
+
+
     //Check the source has the right structure
     {
       auto msrc_00 = PeekIndex<GparityFlavourIndex>(msrc,0,0);
@@ -82,8 +88,10 @@ namespace GridMeas{
       auto msrc_10 = PeekIndex<GparityFlavourIndex>(msrc,1,0);   
       assert(norm2(msrc_01) < 1e-12);
       assert(norm2(msrc_10) < 1e-12);
-    }   
-    
+
+      decltype(msrc_00) tmp = X*msrc_00 - msrc_00*X;
+      assert(norm2(tmp) < 1e-12);
+    }      
 
     GridBase* UGrid = xconj_action_d.GaugeGrid();
     GridBase* FGrid = xconj_action_d.FermionGrid();
@@ -113,11 +121,6 @@ namespace GridMeas{
     FermionFieldD tmp2f(UGrid);
     LatticeSCFmatrixD V_4d(UGrid), V_4d_mid(UGrid);
     
-    static Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
-    static Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
-    static Gamma X = C*g5;
-    static GparityFlavour sigma1 = GparityFlavour(GparityFlavour::Algebra::SigmaX);
-
     for(int s=0;s<4;s++){
       for(int c=0;c<3;c++){
     	for(int pm=0;pm<2;pm++){

@@ -44,20 +44,40 @@ int main(int argc, char** argv){
 
   Actions actions(ActionType::Mobius, Params, 0.01, 2.0, Ud, GridsD, Uf, GridsF);
   
-  LatticeSCFmatrixD wall_src = wallSource(0, GridsD.UGrid);
+  //LatticeSCFmatrixD src = wallSource(0, GridsD.UGrid);
 
+  //Should work with any spin-color source phi providing its flavor structure is diag(phi, phi*)  and [phi,X] = 0
+  static Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
+  static Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
+  static Gamma X = C*g5;
+
+  LatticeSpinColourMatrixD phi(GridsD.UGrid);
+  gaussian(pRNG, phi);
+  phi = X*phi + phi*X;
+
+  LatticeSCFmatrixD src(GridsD.UGrid);
+  src = Zero();
+  PokeIndex<GparityFlavourIndex>(src, phi, 0,0);
+  PokeIndex<GparityFlavourIndex>(src, conjugate(phi), 1,1);
+  
   LatticeSCFmatrixD sol_GP(GridsD.UGrid), midsol_GP(GridsD.UGrid);
-  mixedPrecInvertGen(sol_GP, midsol_GP, wall_src, *actions.action_d, *actions.action_f, 1e-8, 1e-5, true, 
+  mixedPrecInvertGen(sol_GP, midsol_GP, src, *actions.action_d, *actions.action_f, 1e-8, 1e-5, true, 
 		     (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
 
   LatticeSCFmatrixD sol_Xconj(GridsD.UGrid), midsol_Xconj(GridsD.UGrid);
-  mixedPrecInvertGenXconj(sol_Xconj, midsol_Xconj, wall_src, *actions.xconj_action_d, *actions.xconj_action_f, 1e-8, 1e-5, true, 
+  mixedPrecInvertGenXconj(sol_Xconj, midsol_Xconj, src, *actions.xconj_action_d, *actions.xconj_action_f, 1e-8, 1e-5, true, 
   			  (std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
 
   LatticeSCFmatrixD diff = sol_Xconj - sol_GP;
   std::cout << "Prop: Norm of difference (expect 0): " << norm2(diff) << std::endl;
+  assert(norm2(diff) < 1e-8);
   diff = midsol_Xconj - midsol_GP;
   std::cout << "Midprop: Norm of difference (expect 0): " << norm2(diff) << std::endl;
+  assert(norm2(diff) < 1e-8);
+
+  
+
+
 
   std::cout << GridLogMessage << " Done" << std::endl;
   Grid_finalize();
