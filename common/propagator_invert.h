@@ -41,13 +41,14 @@ namespace GridMeas{
       });
   }
 
-  class MixedCGwrapper: public OperatorFunction<FermionFieldD> {
-    MixedPrecisionConjugateGradient<FermionFieldD, FermionFieldF> &mcg;
+  template<class FieldD, class FieldF>
+  class MixedCGwrapper: public OperatorFunction<FieldD> {
+    MixedPrecisionConjugateGradient<FieldD, FieldF> &mcg;
 
   public:
-    MixedCGwrapper(MixedPrecisionConjugateGradient<FermionFieldD, FermionFieldF> &mcg): mcg(mcg){}
+    MixedCGwrapper(MixedPrecisionConjugateGradient<FieldD, FieldF> &mcg): mcg(mcg){}
 
-    void operator() (LinearOperatorBase<FermionFieldD> &Linop, const FermionFieldD &in, FermionFieldD &out){
+    void operator() (LinearOperatorBase<FieldD> &Linop, const FieldD &in, FieldD &out){
       mcg(in, out);
     }
   };
@@ -141,7 +142,7 @@ namespace GridMeas{
   
     MixedPrecisionConjugateGradient<FermionFieldD, FermionFieldF> mcg(tol, 10000,10000, action_f.FermionRedBlackGrid(), hermop_f, hermop_d);
     mcg.InnerTolerance = inner_tol;
-    MixedCGwrapper mcg_wrap(mcg);
+    MixedCGwrapper<FermionFieldD, FermionFieldF> mcg_wrap(mcg);
 
     LinearFunction<FermionFieldD> *guesser = nullptr;
     if(evecs != nullptr && evals != nullptr)
@@ -272,7 +273,7 @@ namespace GridMeas{
 
     MixedPrecisionConjugateGradient<FermionFieldD, FermionFieldF> mcg(tol, 10000,10000, subgrid_action_f.FermionRedBlackGrid(), hermop_f, hermop_d);
     mcg.InnerTolerance = inner_tol;
-    MixedCGwrapper mcg_wrap(mcg);  
+    MixedCGwrapper<FermionFieldD, FermionFieldF> mcg_wrap(mcg);  
     SchurRedBlackDiagMooeeSolve<FermionFieldD> solver(mcg_wrap);
     
     //Setup scratch space for the subgrid solves

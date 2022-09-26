@@ -14,4 +14,11 @@ namespace GridMeas{
   
   typedef GparityWilsonImplF::FermionField FermionFieldF;
   typedef GparityWilsonImplF::SiteSpinor SiteSpinorF;
+
+  typedef XconjugateWilsonImplD::FermionField FermionField1fD;
+  typedef XconjugateWilsonImplD::SiteSpinor SiteSpinor1fD;
+  
+  typedef XconjugateWilsonImplF::FermionField FermionField1fF;
+  typedef XconjugateWilsonImplF::SiteSpinor SiteSpinor1fF;
+
 };

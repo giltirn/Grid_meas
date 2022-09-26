@@ -53,15 +53,15 @@ namespace GridMeas{
     
   };
  
-  Grids makeDoublePrecGrids(const int Ls, const Coordinate &latt = GridDefaultLatt()){
+  static inline Grids makeDoublePrecGrids(const int Ls, const Coordinate &latt = GridDefaultLatt()){
     Grids out; out.generate(latt,Ls,vComplexD::Nsimd()); return out;
   }
-  Grids makeSinglePrecGrids(const int Ls, const Coordinate &latt = GridDefaultLatt()){
+  static inline Grids makeSinglePrecGrids(const int Ls, const Coordinate &latt = GridDefaultLatt()){
     Grids out; out.generate(latt,Ls,vComplexF::Nsimd()); return out;
   }
   //subgrid_proc_geom : the geometry of the MPI ranks of the subgrid
   //e.g. for an 4^4 original MPI layout generate 16 subgrids of 2^4 processors each with subgrid_proc_geom = (2,2,2,2)
-  Grids makeSplitGrids(const Grids &r, const Coordinate &subgrid_proc_geom){
+  static inline Grids makeSplitGrids(const Grids &r, const Coordinate &subgrid_proc_geom){
     Grids out; out.split(r,subgrid_proc_geom); return out;
   }
     

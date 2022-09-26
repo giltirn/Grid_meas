@@ -41,3 +41,11 @@ test_kaon_2pt: test_kaon_2pt.cc
 test_split_grid_propagator_invert: test_split_grid_propagator_invert.cc
 	$(CXX) test_split_grid_propagator_invert.cc -c -o test_split_grid_propagator_invert.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_split_grid_propagator_invert.o -o test_split_grid_propagator_invert $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
+test_Xconj_lanczos: test_Xconj_lanczos.cc
+	$(CXX) test_Xconj_lanczos.cc -c -o test_Xconj_lanczos.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_Xconj_lanczos.o -o test_Xconj_lanczos $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
+test_propagator_invert_Xconj: test_propagator_invert_Xconj.cc
+	$(CXX) test_propagator_invert_Xconj.cc -c -o test_propagator_invert_Xconj.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_propagator_invert_Xconj.o -o test_propagator_invert_Xconj $(CXXFLAGS) $(LDFLAGS) $(LIBS)

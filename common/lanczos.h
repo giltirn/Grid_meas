@@ -30,7 +30,21 @@ namespace GridMeas{
     }
   };
 
-
+  template<typename ActionParams, typename Field>
+  struct getLanczosInnerProduct{
+    static void doit(innerProductImplementation<Field> *& inner, ImplicitlyRestartedLanczosTester<Field> *&tester, LinearFunction<Field> &HermOp){
+      inner = new innerProductImplementation<Field>;
+      tester = new ImplicitlyRestartedLanczosHermOpTester<Field>(HermOp, *inner);
+    }
+  };
+  template<typename Field>
+  struct getLanczosInnerProduct<XconjWilsonImplParams, Field>{
+    static void doit(innerProductImplementation<Field> *& inner, ImplicitlyRestartedLanczosTester<Field> *&tester, LinearFunction<Field> &HermOp){
+      inner = new innerProductImplementationXconjugate<Field>;
+      tester = new ImplicitlyRestartedLanczosHermOpTester<Field>(HermOp, *inner);
+    }
+  };
+   
 
   template<typename FermionAction, typename FermionField, typename LatticeGaugeField>
   void computeEigenvalues(std::vector<RealD> &eval,
@@ -54,8 +68,12 @@ namespace GridMeas{
     Chebyshev<FermionField> Cheb(params.beta*params.beta, params.alpha*params.alpha, params.ord+1);
     FunctionHermOp<FermionField> Cheb_wrap(Cheb, hermop);
 
+    innerProductImplementation<FermionField> *inner;
+    ImplicitlyRestartedLanczosTester<FermionField> *tester;
+    getLanczosInnerProduct<typename FermionAction::ImplParams, FermionField>::doit(inner,tester,hermop_wrap);
+
     std::cout << "IRL: alpha=" << params.alpha << " beta=" << params.beta << " mu=" << params.mu << " ord=" << params.ord << std::endl;
-    ImplicitlyRestartedLanczos<FermionField> IRL(Cheb_wrap, hermop_wrap, params.n_stop, params.n_want, params.n_use, params.tolerance, 10000);
+    ImplicitlyRestartedLanczos<FermionField> IRL(Cheb_wrap, hermop_wrap, *tester, *inner, params.n_stop, params.n_want, params.n_use, params.tolerance, 10000);
 
     eval.resize(params.n_use);
     evec.clear();
@@ -63,6 +81,9 @@ namespace GridMeas{
 
     int Nconv;
     IRL.calc(eval, evec, gauss_o, Nconv);
+
+    delete inner;
+    delete tester;
 
     std::cout << "Eigenvalues:" << std::endl;
     for(int i=0;i<params.n_want;i++){
