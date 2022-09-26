@@ -63,6 +63,14 @@ namespace GridMeas{
     return zone;
   }
 
+  FermionFieldD randomGaussianVolumeSource(GridParallelRNG &rng, GridBase* UGrid){
+    FermionFieldD out(UGrid);
+    //Default sigma^2 = 1/2 
+    gaussian(rng, out);
+    out = out * RealD(sqrt(0.5)); //re,im
+    return out;
+  }
+
 
 
 

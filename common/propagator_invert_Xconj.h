@@ -162,6 +162,6 @@ namespace GridMeas{
       LatticeSCFmatrixD tmp = mulPplusRight(V_4d_mid) + mulPminusRight(V_4d_mid)*sigma1;  
       midprop = mulURight(tmp);
     }
-
+    if(guesser) delete guesser;
   }
 };
