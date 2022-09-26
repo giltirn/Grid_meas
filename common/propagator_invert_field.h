@@ -5,7 +5,8 @@
 namespace GridMeas{
   using namespace Grid; 
 
- //General mixed prec inverter with optional midprop
+
+  //Invert the propagator against a field using the X-conjugate action under the hood
   template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
   void mixedPrecInvertField(FermionFieldD &sol, const FermionFieldD &src, FermionActionD &action_d, FermionActionF &action_f, 
 			  double tol, double inner_tol,

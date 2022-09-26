@@ -53,3 +53,7 @@ test_propagator_invert_Xconj: test_propagator_invert_Xconj.cc
 test_stochastic_a2a: test_stochastic_a2a.cc
 	$(CXX) test_stochastic_a2a.cc -c -o test_stochastic_a2a.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_stochastic_a2a.o -o test_stochastic_a2a $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
+test_propagator_invert_field_Xconj: test_propagator_invert_field_Xconj.cc
+	$(CXX) test_propagator_invert_field_Xconj.cc -c -o test_propagator_invert_field_Xconj.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_propagator_invert_field_Xconj.o -o test_propagator_invert_field_Xconj $(CXXFLAGS) $(LDFLAGS) $(LIBS)
