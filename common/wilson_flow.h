@@ -83,42 +83,57 @@ namespace GridMeas{
   };
   
   //Wilson flow smearing with configurable outputs
-  void WilsonFlowMeasGeneral(WilsonFlowIO &meas,
-			     const int Nstep, const double epsilon,
-			     const LatticeGaugeFieldD &U, LatticeGaugeFieldD *V = nullptr){
-    WilsonFlow<ConjugateGimplD> wflow(Nstep, epsilon);
-    wflow.resetActions();    
+  void WilsonFlowMeasGeneralOpt(WilsonFlowIO &meas,
+				const int Nstep, const double epsilon, bool do_adaptive, const double adaptive_maxTau, const double adaptive_tol,
+				const LatticeGaugeFieldD &U, LatticeGaugeFieldD *V = nullptr){
+    WilsonFlowBase<ConjugateGimplD>* wflow = nullptr;
+    if(do_adaptive) wflow = new WilsonFlowAdaptive<ConjugateGimplD>(epsilon, adaptive_maxTau, adaptive_tol);
+    else wflow = new WilsonFlow<ConjugateGimplD>(epsilon, Nstep);
+
+    wflow->resetActions();    
     meas.clear();
 
     if(meas.do_energy_density_clover)
-      wflow.addMeasurement(1, [&wflow,&meas](int step, RealD t, const LatticeGaugeField &U){ 
+      wflow->addMeasurement(1, [&wflow,&meas](int step, RealD t, const LatticeGaugeField &U){ 
 	  std::cout << GridLogMessage << "[WilsonFlow] Computing Cloverleaf energy density for step " << step << std::endl;
-	  meas.energy_density_clover.push_back( {t, wflow.energyDensityCloverleaf(t,U)} );
+	  meas.energy_density_clover.push_back( {t, wflow->energyDensityCloverleaf(t,U)} );
 	});
 
     if(meas.do_energy_density_plaq)
-      wflow.addMeasurement(1, [&wflow,&meas](int step, RealD t, const LatticeGaugeField &U){ 
+      wflow->addMeasurement(1, [&wflow,&meas](int step, RealD t, const LatticeGaugeField &U){ 
 	  std::cout << GridLogMessage << "[WilsonFlow] Computing Plaquette energy density for step " << step << std::endl;
-	  meas.energy_density_plaq.push_back( {t, wflow.energyDensityPlaquette(t,U)} );
+	  meas.energy_density_plaq.push_back( {t, wflow->energyDensityPlaquette(t,U)} );
 	});
     
     if(meas.do_timeslice_topq)
-      wflow.addMeasurement(meas.timeslice_topq_meas_freq, [&meas](int step, RealD t, const LatticeGaugeField &U){ 
+      wflow->addMeasurement(meas.timeslice_topq_meas_freq, [&meas](int step, RealD t, const LatticeGaugeField &U){ 
 	  std::cout << GridLogMessage << "[WilsonFlow] Computing timeslice topologial charge for step " << step << std::endl;
 	  meas.timeslice_topq.push_back( {t, WilsonLoops<ConjugateGimplD>::TimesliceTopologicalCharge5Li(U) } );
 	});      
 
     if(meas.do_timeslice_plaq)
-      wflow.addMeasurement(meas.timeslice_plaq_meas_freq, [&meas](int step, RealD t, const LatticeGaugeField &U){ 
+      wflow->addMeasurement(meas.timeslice_plaq_meas_freq, [&meas](int step, RealD t, const LatticeGaugeField &U){ 
 	  std::cout << GridLogMessage << "[WilsonFlow] Computing timeslice plaquette charge for step " << step << std::endl;
 	  meas.timeslice_plaq.push_back( {t, WilsonLoops<ConjugateGimplD>::timesliceAvgSpatialPlaquette(U) } );
 	});      
 
     LatticeGaugeFieldD Vtmp(U.Grid());
-    wflow.smear(Vtmp, U);
+    wflow->smear(Vtmp, U);
+    delete wflow;
+
     if(V) *V = std::move(Vtmp);
   }
+  inline void WilsonFlowMeasGeneral(WilsonFlowIO &meas,
+			     const int Nstep, const double epsilon,
+			     const LatticeGaugeFieldD &U, LatticeGaugeFieldD *V = nullptr){
+    WilsonFlowMeasGeneralOpt(meas,Nstep,epsilon,false,0,0,U,V);
+  }
+  inline void WilsonFlowAdaptiveMeasGeneral(WilsonFlowIO &meas,
+					    const double epsilon, const double maxTau, const double tol,
+					    const LatticeGaugeFieldD &U, LatticeGaugeFieldD *V = nullptr){
+    WilsonFlowMeasGeneralOpt(meas,0,epsilon,true,maxTau,tol,U,V);
+  }
 
-  
+
 
 };

@@ -57,3 +57,7 @@ test_stochastic_a2a: test_stochastic_a2a.cc
 test_propagator_invert_field_Xconj: test_propagator_invert_field_Xconj.cc
 	$(CXX) test_propagator_invert_field_Xconj.cc -c -o test_propagator_invert_field_Xconj.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_propagator_invert_field_Xconj.o -o test_propagator_invert_field_Xconj $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
+test_adaptive_wilson_flow: test_adaptive_wilson_flow.cc
+	$(CXX) test_adaptive_wilson_flow.cc -c -o test_adaptive_wilson_flow.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_adaptive_wilson_flow.o -o test_adaptive_wilson_flow $(CXXFLAGS) $(LDFLAGS) $(LIBS)

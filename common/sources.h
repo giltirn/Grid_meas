@@ -65,7 +65,10 @@ namespace GridMeas{
 
   FermionFieldD randomGaussianVolumeSource(GridParallelRNG &rng, GridBase* UGrid){
     FermionFieldD out(UGrid);
-    //Default sigma^2 = 1/2 
+    //Default sigma^2 = 1     CPS uses sigma^2=1/2 for random source (cf alg_pbp.C)
+    //The reason for choosing sigma^2=1/2 is because we want 1=<x* x> = <x_r^2> + <x_i^2>     and for mu=0  <x_r^2> = <x_i>^2 = sigma^2 
+
+    //Properties of gaussian distribution   if   X ~ N(0,1)   then   aX  ~ N(0, |a|)
     gaussian(rng, out);
     out = out * RealD(sqrt(0.5)); //re,im
     return out;
