@@ -7,6 +7,9 @@
 #include "common/sources.h"
 #include "common/action.h"
 #include "common/propagator_invert.h"
+#include "common/propagator_invert_Xconj.h"
+#include "common/propagator_invert_field.h"
+#include "common/propagator_invert_field_Xconj.h"
 #include "common/array_io.h"
 #include "common/field_array_io.h" 
 #include "common/read_config.h"
@@ -18,6 +21,5 @@
 #include "common/ps_singlet_2pt.h"
 #include "common/wilson_flow.h"
 #include "common/topological_charge.h"
-
-
+#include "common/chiral_condensate.h"
 

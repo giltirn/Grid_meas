@@ -17,9 +17,9 @@ namespace GridMeas{
   // \sum_x \sum_i < chi_i(x) eta*_i(x) >_hit ~ \sum_x \sum_i G_ii(x,x)
   //   = innerProduct( chi*, eta ) *          but we only care about the real part
   RealD chiralCondensate(const FermionFieldD &sol_rnd_vol, const FermionFieldD &src_rnd_vol){
-    GridBase* FGrid = sol_rnd_vol.Grid();
+    GridBase* UGrid = sol_rnd_vol.Grid();
     RealD vol = 1.;
-    for(int i=1;i<5;i++) vol *= FGrid->GlobalDimensions()[i]; //s-direction is 0
+    for(int i=0;i<4;i++) vol *= UGrid->GlobalDimensions()[i]; //source is 4d!
 
     RealD v = innerProduct(conjugate(sol_rnd_vol), src_rnd_vol).real();
     v = v * RealD(1./24/vol); // note I removed the - sign to match CPS conventions, but did not include the F_CLASS_DWF 5-M5 normalization

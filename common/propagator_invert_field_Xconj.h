@@ -70,5 +70,9 @@ namespace GridMeas{
     if(guesser) delete guesser;
   }
 
-
+  template<typename FermionActionD, typename FermionActionF>
+  void mixedPrecInvertFieldXconj(FermionFieldD &sol, const FermionFieldD &src, FermionActionD &xconj_action_d, FermionActionF &xconj_action_f, 
+				 double tol, double inner_tol){
+    mixedPrecInvertFieldXconj(sol,src,xconj_action_d,xconj_action_f,tol,inner_tol,(std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
+  }
 };
