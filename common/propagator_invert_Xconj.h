@@ -85,12 +85,9 @@ namespace GridMeas{
   //Right multiply by U
   template<typename T>
     T mulURight(const T &in){
-    static Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
-    static Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
-    static Gamma X = C*g5;
     static GparityFlavour sigma3 = GparityFlavour(GparityFlavour::Algebra::SigmaZ);
 
-    T out = 0.5*(in + in*X) + 0.5*(in*sigma3 - (in*X)*sigma3);
+    T out = 0.5*(in + in*Xmatrix()) + 0.5*(in*sigma3 - (in*Xmatrix())*sigma3);
     return out;
   }
   
@@ -105,12 +102,6 @@ namespace GridMeas{
 			       double tol, double inner_tol,
 			       bool do_midprop,
 			       std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
-    static Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
-    static Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
-    static Gamma X = C*g5;
-    static GparityFlavour sigma1 = GparityFlavour(GparityFlavour::Algebra::SigmaX);
-
-
     //Check the source has the right structure
     {
       auto msrc_00 = PeekIndex<GparityFlavourIndex>(msrc,0,0);
@@ -122,76 +113,26 @@ namespace GridMeas{
       assert(norm2(msrc_01) < 1e-12);
       assert(norm2(msrc_10) < 1e-12);
 
-      decltype(msrc_00) tmp = X*msrc_00 - msrc_00*X;
+      decltype(msrc_00) tmp = Xmatrix()*msrc_00 - msrc_00*Xmatrix();
       assert(norm2(tmp) < 1e-12);
     }      
 
-    GridBase* UGrid = xconj_action_d.GaugeGrid();
-    GridBase* FGrid = xconj_action_d.FermionGrid();
-    GridBase* FrbGrid = xconj_action_d.FermionRedBlackGrid();
+    LatticeSCFmatrixD src_rotated = mulHRight(msrc); //the columns of this are X-conjugate
+    LatticePropagatorD src_fcol(msrc.Grid());
+    std::vector<LatticePropagatorD> prop_fcol(2, msrc.Grid()), midprop_fcol(2, msrc.Grid());
 
+    for(int fcol=0;fcol<Ngp;fcol++){
+      src_fcol = PeekIndex<GparityFlavourIndex>(src_rotated,0,fcol); //only need upper flavor component as X-conjugate
+      mixedPrecInvertGen(prop_fcol[fcol], midprop_fcol[fcol], src_fcol, xconj_action_d, xconj_action_f, tol, inner_tol, do_midprop, evals, evecs);
+    }    
 
-    SchurDiagMooeeOperator<FermionActionD,FermionField1fD> hermop_d(xconj_action_d);
-    SchurDiagMooeeOperator<FermionActionF,FermionField1fF> hermop_f(xconj_action_f);
-  
-    MixedPrecisionConjugateGradient<FermionField1fD, FermionField1fF> mcg(tol, 10000,10000, xconj_action_f.FermionRedBlackGrid(), hermop_f, hermop_d);
-    mcg.InnerTolerance = inner_tol;
-    MixedCGwrapper<FermionField1fD, FermionField1fF> mcg_wrap(mcg);
-    SchurRedBlackDiagMooeeSolve<FermionField1fD> solver(mcg_wrap);
+    get2fXconjMatrix(prop, prop_fcol[0],prop_fcol[1]);
+    prop = mulHdagRight(prop);
 
-    // ConjugateGradient<FermionField1fD> cg(1e-08,10000);
-    // SchurRedBlackDiagMooeeSolve<FermionField1fD> solver(cg);
-
-    LinearFunction<FermionField1fD> *guesser = nullptr;
-    if(evecs != nullptr && evals != nullptr)
-      guesser = getGuesser<FermionField1fD>(*evals,*evecs);
-
-
-    FermionField1fD tmp4d(UGrid);
-    FermionField1fD src4d(UGrid);
-    FermionField1fD src5d(FGrid), sol5d(FGrid);
-    
-    FermionFieldD tmp2f(UGrid);
-    LatticeSCFmatrixD V_4d(UGrid), V_4d_mid(UGrid);
-    
-    for(int s=0;s<4;s++){
-      for(int c=0;c<3;c++){
-    	for(int pm=0;pm<2;pm++){
-	  tmp2f = extractColumn(msrc, 0,s,c);
-	  src4d = PeekIndex<GparityFlavourIndex>(tmp2f,0); //00 element
-    	  src4d = pm == 0 ? mulPplusLeft(src4d) : mulPminusLeft(src4d);
-
-    	  xconj_action_d.ImportPhysicalFermionSource(src4d, src5d);
-
-	  guesser != nullptr ? 
-	    solver(xconj_action_d, src5d, sol5d, *guesser) 
-	    : 
-	    solver(xconj_action_d, src5d, sol5d);
-
-    	  xconj_action_d.ExportPhysicalFermionSolution(sol5d, tmp4d);
-
-    	  //Generate 2f X-conjugate output
-	  get2fXconjVector(tmp2f, tmp4d);
-    	  insertColumn(V_4d, tmp2f, pm,s,c);
-
-	  if(do_midprop){
-	    tmp4d = extractMidProp(sol5d, xconj_action_d);
-	    get2fXconjVector(tmp2f, tmp4d);
-	    insertColumn(V_4d_mid, tmp2f, pm,s,c);
-	  }
-
-    	}
-      }
-    }
-
-    LatticeSCFmatrixD tmp = mulPplusRight(V_4d) + mulPminusRight(V_4d)*sigma1;  
-    prop = mulURight(tmp);
-    
     if(do_midprop){
-      LatticeSCFmatrixD tmp = mulPplusRight(V_4d_mid) + mulPminusRight(V_4d_mid)*sigma1;  
-      midprop = mulURight(tmp);
+      get2fXconjMatrix(midprop, midprop_fcol[0],midprop_fcol[1]);
+      midprop = mulHdagRight(midprop);
     }
-    if(guesser) delete guesser;
   }
 
 

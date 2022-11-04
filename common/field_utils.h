@@ -81,6 +81,7 @@ namespace GridMeas{
 
   template<>
   struct columnOps<FermionFieldD>{
+    typedef FermionFieldD fieldType;
     typedef LatticeSCFmatrixD propagatorType;
     enum {Ncols=Ns*Nc*Ngp};
     inline static void unlex(int &f, int &s, int &c, const int col){
@@ -98,6 +99,7 @@ namespace GridMeas{
   };
   template<>
   struct columnOps<FermionField1fD>{
+    typedef FermionField1fD fieldType;
     typedef LatticePropagatorD propagatorType;
     enum {Ncols=Ns*Nc};
     inline static void unlex(int &s, int &c, const int col){
@@ -112,6 +114,14 @@ namespace GridMeas{
       int s,c; unlex(s,c,col); return GridMeas::insertColumn(into,from,s,c);
     }
   };
+  
+  template<typename propagatorType>
+  struct columnOpsMap{};
+  template<>
+  struct columnOpsMap<LatticeSCFmatrixD>{ typedef columnOps<FermionFieldD> type; };
+  template<>
+  struct columnOpsMap<LatticePropagatorD>{ typedef columnOps<FermionField1fD> type; };
+
 
   
 
@@ -138,6 +148,39 @@ namespace GridMeas{
     return p;
   }
 
+  //Convert a 1f X-conjugate vector to a 2f
+  template<typename TwoFlavorField, typename OneFlavorField>
+  void get2fXconjVector(TwoFlavorField &to, const OneFlavorField &from){
+    OneFlavorField tmp1f(from.Grid());
+    PokeIndex<GparityFlavourIndex>(to, from, 0);
+    tmp1f = -(Xmatrix()*conjugate(from));
+    PokeIndex<GparityFlavourIndex>(to, tmp1f, 1);
+  }
 
+  //Convert a pair of 1f spin-color matrices into a spin-color-flavor matrix with X-conjugate columns
+  template<typename TwoFlavorMatrixField, typename OneFlavorMatrixField>
+  void get2fXconjMatrix(TwoFlavorMatrixField &to, const OneFlavorMatrixField &from_0, const OneFlavorMatrixField &from_1){
+    typedef typename columnOpsMap<OneFlavorMatrixField>::type col1f;
+    typedef typename columnOpsMap<TwoFlavorMatrixField>::type col2f;
+    typedef typename col1f::fieldType OneFlavorField;
+    typedef typename col2f::fieldType TwoFlavorField;
+
+    OneFlavorField tmpferm1f(from_0.Grid());
+    TwoFlavorField tmpferm2f(from_0.Grid());
+
+    assert(col1f::Ncols == 12);
+    assert(col2f::Ncols == 24);
+    for(int sc=0;sc<12;sc++){
+      //Flavor column 0
+      tmpferm1f = col1f::extractColumn(from_0,sc);
+      get2fXconjVector(tmpferm2f, tmpferm1f);
+      col2f::insertColumn(to,tmpferm2f,sc);
+
+      //Flavor column 1
+      tmpferm1f = col1f::extractColumn(from_1,sc);
+      get2fXconjVector(tmpferm2f, tmpferm1f);
+      col2f::insertColumn(to,tmpferm2f,sc+12); //mapping is c+3*(s+4*f) =  c+3*s+12*f = sc + 12*f
+    }
+  }
 
 };
