@@ -63,6 +63,23 @@ namespace GridMeas{
     return zone;
   }
 
+  //\eta(x,tau) = \delta_{tau,t} exp(i \vec p \cdot \vec x)
+  LatticeSCFmatrixD momentumWallSource(const std::vector<double> &p, const int t, GridBase* UGrid){    
+    LatticeComplexD phase_field = phaseField(p, UGrid); //exp(-i \vec p \cdot \vec x)
+    phase_field = conjugate(phase_field); //exp(+i \vec p \cdot \vec x)
+    LatticeSCFmatrixD src = wallSource(t,UGrid);
+    src = phase_field * src;
+    return src;
+  }
+
+  //\eta(x,tau) = \delta_{tau,t} \prod_{i=0}^3 cos(p_i x_i)
+  LatticeSCFmatrixD cosineWallSource(const std::vector<double> &p, const int t, GridBase* UGrid){    
+    LatticeComplexD phase_field = cosineMomentumField(p, UGrid);
+    LatticeSCFmatrixD src = wallSource(t,UGrid);
+    src = phase_field * src;
+    return src;
+  }
+
   FermionFieldD randomGaussianVolumeSource(GridParallelRNG &rng, GridBase* UGrid){
     FermionFieldD out(UGrid);
     //Default sigma^2 = 1     CPS uses sigma^2=1/2 for random source (cf alg_pbp.C)

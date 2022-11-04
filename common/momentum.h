@@ -19,6 +19,21 @@ namespace GridMeas{
     return out;
   }
 
+  //Phase field for a cosine source, cf https://rbc.phys.columbia.edu/rbc_ukqcd/phd_thesis/Lightman%20Matthew/thesis_v2_0_distribute.pdf  eq 6.18
+  //f(\vec x, t) = \prod_{mu=0}^{2} cos(p_\mu x_\mu)
+  LatticeComplexD cosineMomentumField(const std::vector<double> &p, GridBase* Grid){
+    LatticeComplexD out(Grid);
+    LatticeComplexD coor(Grid);
+
+    LatticeCoordinate(coor,0);
+    out=cos(p[0]*coor);
+    for(int mu=1;mu<3;mu++){
+      LatticeCoordinate(coor,mu);
+      out = out * cos(p[mu] * coor);
+    }
+    return out;
+  }
+
   //exp(-i \vec p \cdot x0)
   ComplexD phase(const std::vector<double> &p, const Coordinate &x0){
     ComplexD out(0);

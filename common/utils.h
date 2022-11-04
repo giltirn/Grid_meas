@@ -33,4 +33,54 @@ namespace GridMeas{
     any_grid->Broadcast(0, (void*)&p, sizeof(size_t));
     unlex(c, p, latt, dims);
   }
+
+
+
+
+  template<typename GetType, typename A, typename B>
+  struct _getInstance2;
+
+  template<typename A, typename B>
+  struct _getInstance2<A,A,B>{
+    static inline A & doit(A &a, B& b){ return a; }
+  };
+  template<typename A, typename B>
+  struct _getInstance2<B,A,B>{
+    static inline B & doit(A &a, B& b){ return b; }
+  };
+
+  template<typename GetType, typename A, typename B>
+  inline GetType & getInstance(A &a, B& b){ return _getInstance2<GetType,A,B>::doit(a,b); }
+
+
+
+  template<typename GetType, typename A, typename B, typename C, typename D>
+  struct _getInstance4;
+
+  template<typename A, typename B, typename C, typename D>
+  struct _getInstance4<A,A,B,C,D>{
+    static inline A & doit(A &a, B& b, C& c, D& d){ return a; }
+  };
+  template<typename A, typename B, typename C, typename D>
+  struct _getInstance4<B,A,B,C,D>{
+    static inline B & doit(A &a, B& b, C& c, D& d){ return b; }
+  };
+  template<typename A, typename B, typename C, typename D>
+  struct _getInstance4<C,A,B,C,D>{
+    static inline C & doit(A &a, B& b, C& c, D& d){ return c; }
+  };
+  template<typename A, typename B, typename C, typename D>
+  struct _getInstance4<D,A,B,C,D>{
+    static inline D & doit(A &a, B& b, C& c, D& d){ return d; }
+  };
+
+  template<typename GetType, typename A, typename B, typename C, typename D>
+  inline GetType & getInstance(A &a, B& b, C& c, D& d){ return _getInstance4<GetType,A,B,C,D>::doit(a,b,c,d); }
+
+
+
+
+  
+
+
 }

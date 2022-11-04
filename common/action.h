@@ -167,6 +167,9 @@ namespace GridMeas{
       printMem("Post Xconj actionD/F creation");
     }    
   
+    template<typename ActionType>
+    inline ActionType* getAction(){ return getInstance<ActionType*>(action_d, action_f, xconj_action_d, xconj_action_f); }
+
     ~Actions(){
       if(action_d) delete action_d;
       if(action_f) delete action_f;
@@ -183,4 +186,23 @@ namespace GridMeas{
 		   
     
   };
+
+  //Setup the gauge BCs and return the parameters to set up the fermion actions
+  //Antiperiodic BCs in the time direction are assumed
+  inline GparityWilsonImplD::ImplParams setupActionParams(const std::vector<Integer> &GparityDirs){
+    assert(Nd == 4);
+    std::vector<int> dirs4(4);
+    for(int i=0;i<3;i++) dirs4[i] = GparityDirs[i];
+    dirs4[3] = 0; //periodic gauge BC in time
+    
+    std::cout << GridLogMessage << "Gauge BCs: " << dirs4 << std::endl;
+    ConjugateGimplD::setDirections(dirs4); //gauge BC
+    
+    GparityWilsonImplD::ImplParams Params;
+    for(int i=0;i<Nd-1;i++) Params.twists[i] = GparityDirs[i]; //G-parity directions
+    Params.twists[Nd-1] = 1; //APBC in time direction
+    std::cout << GridLogMessage << "Fermion BCs: " << Params.twists << std::endl;
+    return Params;
+  }
+
 }
