@@ -164,4 +164,41 @@ namespace GridMeas{
     }
     if(guesser) delete guesser;
   }
+
+
+  //No midprop, with evecs
+  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
+  LatticeSCFmatrixD mixedPrecInvertXconj(const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, double tol, double inner_tol,
+					 std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
+    LatticeSCFmatrixD tmp(msrc.Grid()), prop(msrc.Grid());
+    mixedPrecInvertGenXconj(prop,tmp,msrc,action_d,action_f,tol,inner_tol,false,evals,evecs);
+    return prop;
+  }
+  //No midprop, no evecs
+  template<typename FermionActionD, typename FermionActionF>
+  LatticeSCFmatrixD mixedPrecInvertXconj(const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, double tol, double inner_tol){
+    return mixedPrecInvertXconj(msrc,action_d,action_f,tol,inner_tol,(std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
+  }
+
+
+  //With midprop and evecs
+  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
+  void mixedPrecInvertWithMidPropXconj(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
+				       const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, 
+				       double tol, double inner_tol,
+				       std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
+    mixedPrecInvertGenXconj(prop,midprop,msrc,action_d,action_f,tol,inner_tol,true,evals,evecs);
+  }    
+  //With midprop, no evecs
+  template<typename FermionActionD, typename FermionActionF>
+  void mixedPrecInvertWithMidPropXconj(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
+				       const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, 
+				       double tol, double inner_tol){
+    mixedPrecInvertWithMidPropXconj(prop, midprop, msrc, action_d, action_f, tol, inner_tol, (std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
+  }
+
+
+
+
+
 };

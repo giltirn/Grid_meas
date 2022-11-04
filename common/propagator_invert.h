@@ -2,6 +2,7 @@
 
 #include "defines.h"
 #include "grids.h"
+#include "guesser.h"
 
 namespace GridMeas{
   using namespace Grid;
@@ -51,61 +52,7 @@ namespace GridMeas{
     void operator() (LinearOperatorBase<FieldD> &Linop, const FieldD &in, FieldD &out){
       mcg(in, out);
     }
-  };
-  
-  //Guesser using single precision eigenvectors
-  template<class FieldF, class FieldD>
-  class MixedPrecDeflatedGuesser: public LinearFunction<FieldD> {
-  private:
-    const std::vector<FieldF> &evec;
-    const std::vector<RealD> &eval;
-    
-  public:
-    
-    MixedPrecDeflatedGuesser(const std::vector<FieldF> & _evec,const std::vector<RealD> & _eval) : evec(_evec), eval(_eval) {};
-    
-    virtual void operator()(const FieldD &src,FieldD &guess) {
-      assert(evec.size() > 0);
-      assert(evec.size()==eval.size());
-      auto N = evec.size();
-      FieldF src_f(evec[0].Grid()), guess_f(evec[0].Grid());
-      precisionChange(src_f, src);
-      guess_f = Zero();
-      
-      for (int i=0;i<N;i++) {
-	const FieldF& tmp = evec[i];
-	axpy(guess_f,TensorRemove(innerProduct(tmp,src_f)) / eval[i],tmp,guess_f);
-      }
-      precisionChange(guess, guess_f);
-      guess.Checkerboard() = src.Checkerboard();
-    }
-  };
-
-
-
-  template<typename EvecFieldType, typename FieldTypeD, int prec>
-  struct _get_guesser{};
-
-  template<typename FieldTypeD>
-  struct _get_guesser<FieldTypeD, FieldTypeD, 2>{    
-    inline static LinearFunction<FieldTypeD>* get(std::vector<Real> const& evals, std::vector<FieldTypeD> const &evecs){
-      std::cout << GridLogMessage << "Using double precision guesser" << std::endl;
-      return new DeflatedGuesser<FieldTypeD>(evecs, evals);
-    }
-  };
-
-  template<typename FieldTypeF, typename FieldTypeD>
-  struct _get_guesser<FieldTypeF, FieldTypeD, 1>{
-    inline static LinearFunction<FieldTypeD>* get(std::vector<Real> const& evals, std::vector<FieldTypeF> const &evecs){
-      std::cout << GridLogMessage << "Using mixed precision guesser" << std::endl;
-      return new MixedPrecDeflatedGuesser<FieldTypeF,FieldTypeD>(evecs, evals);
-    }
-  };
-
-  template<typename FieldTypeD, typename EvecFieldType>
-  inline LinearFunction<FieldTypeD>* getGuesser(std::vector<Real> const& evals, std::vector<EvecFieldType> const &evecs){
-    return _get_guesser<EvecFieldType, FieldTypeD, getPrecision<EvecFieldType>::value>::get(evals, evecs);
-  }
+  }; 
 
   //The midpoint propagator
   //\phi(x) = + P_L \psi(x,Ls/2) + P_R \psi(x,Ls/2-1) 
@@ -206,7 +153,7 @@ namespace GridMeas{
     return prop;
   }
   //No midprop, no evecs
-  template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
+  template<typename FermionActionD, typename FermionActionF>
   LatticeSCFmatrixD mixedPrecInvert(const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, double tol, double inner_tol){
     return mixedPrecInvert(msrc,action_d,action_f,tol,inner_tol,(std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
   }
@@ -221,8 +168,9 @@ namespace GridMeas{
     mixedPrecInvertGen(prop,midprop,msrc,action_d,action_f,tol,inner_tol,true,evals,evecs);
   }    
   //With midprop, no evecs
+  template<typename FermionActionD, typename FermionActionF>
   void mixedPrecInvertWithMidProp(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
-				  const LatticeSCFmatrixD &msrc, CayleyFermion5D<GparityWilsonImplD> &action_d, CayleyFermion5D<GparityWilsonImplF> &action_f, 
+				  const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, 
 				  double tol, double inner_tol){
     mixedPrecInvertWithMidProp(prop, midprop, msrc, action_d, action_f, tol, inner_tol, (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
   }

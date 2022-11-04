@@ -36,7 +36,7 @@ namespace GridMeas{
 
 
 
-
+  //Get an instance of GetType from among 2 objects (type must match A or B)
   template<typename GetType, typename A, typename B>
   struct _getInstance2;
 
@@ -53,7 +53,7 @@ namespace GridMeas{
   inline GetType & getInstance(A &a, B& b){ return _getInstance2<GetType,A,B>::doit(a,b); }
 
 
-
+  //Get an instance of GetType from among 4 objects (type must match A,B,C or D)
   template<typename GetType, typename A, typename B, typename C, typename D>
   struct _getInstance4;
 
@@ -77,10 +77,11 @@ namespace GridMeas{
   template<typename GetType, typename A, typename B, typename C, typename D>
   inline GetType & getInstance(A &a, B& b, C& c, D& d){ return _getInstance4<GetType,A,B,C,D>::doit(a,b,c,d); }
 
-
-
-
-  
-
+  inline Gamma Xmatrix(){
+    static Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
+    static Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
+    static Gamma X = C*g5;
+    return X;
+  }
 
 }

@@ -46,6 +46,10 @@ test_Xconj_lanczos: test_Xconj_lanczos.cc
 	$(CXX) test_Xconj_lanczos.cc -c -o test_Xconj_lanczos.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_Xconj_lanczos.o -o test_Xconj_lanczos $(CXXFLAGS) $(LDFLAGS) $(LIBS)
 
+test_Xconj_guesser: test_Xconj_guesser.cc
+	$(CXX) test_Xconj_guesser.cc -c -o test_Xconj_guesser.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_Xconj_guesser.o -o test_Xconj_guesser $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
 test_propagator_invert_Xconj: test_propagator_invert_Xconj.cc
 	$(CXX) test_propagator_invert_Xconj.cc -c -o test_propagator_invert_Xconj.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_propagator_invert_Xconj.o -o test_propagator_invert_Xconj $(CXXFLAGS) $(LDFLAGS) $(LIBS)

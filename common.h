@@ -6,6 +6,7 @@
 #include "common/grids.h"
 #include "common/sources.h"
 #include "common/action.h"
+#include "common/guesser.h"
 #include "common/propagator_invert.h"
 #include "common/propagator_invert_Xconj.h"
 #include "common/propagator_invert_field.h"
