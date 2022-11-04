@@ -4,6 +4,7 @@
 #include "common/utils.h"
 #include "common/momentum.h"
 #include "common/grids.h"
+#include "common/field_utils.h"
 #include "common/sources.h"
 #include "common/action.h"
 #include "common/guesser.h"
