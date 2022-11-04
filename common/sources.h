@@ -2,6 +2,7 @@
 
 #include "defines.h"
 #include "utils.h"
+#include "momentum.h"
 
 namespace GridMeas{
   using namespace Grid;

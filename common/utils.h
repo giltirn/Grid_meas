@@ -84,4 +84,14 @@ namespace GridMeas{
     return X;
   }
 
+  //Convert a 1f X-conjugate vector to a 2f
+  template<typename TwoFlavorField, typename OneFlavorField>
+  void get2fXconjVector(TwoFlavorField &to, const OneFlavorField &from){
+    OneFlavorField tmp1f(from.Grid());
+    PokeIndex<GparityFlavourIndex>(to, from, 0);
+    tmp1f = -(Xmatrix()*conjugate(from));
+    PokeIndex<GparityFlavourIndex>(to, tmp1f, 1);
+  }
+
+
 }

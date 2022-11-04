@@ -1,7 +1,7 @@
 #pragma once
 
 #include "propagator_invert.h"
-
+#include "utils.h"
 
 namespace GridMeas{
   using namespace Grid;
@@ -9,44 +9,77 @@ namespace GridMeas{
   //0.5*(1+iX) in
   template<typename T>
   T mulPplusLeft(const T &in){
-    static Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
-    static Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
-    static Gamma X = C*g5;
     static ComplexD _I(0,1);
-    T out = 0.5*(in + _I * (X*in));
+    T out = 0.5*(in + _I * (Xmatrix()*in));
     return out;
   }
   //0.5*(1+iX) in
   template<typename T>
   T mulPminusLeft(const T &in){
-    static Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
-    static Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
-    static Gamma X = C*g5;
     static ComplexD _mI(0,-1);
-    T out = 0.5*(in + _mI * (X*in));
+    T out = 0.5*(in + _mI * (Xmatrix()*in));
     return out;
   }
 
   //0.5*(1+iX) in
   template<typename T>
   T mulPplusRight(const T &in){
-    static Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
-    static Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
-    static Gamma X = C*g5;
     static ComplexD _I(0,1);
-    T out = 0.5*(in + _I * (in*X));
+    T out = 0.5*(in + _I * (in*Xmatrix()));
     return out;
   }
   //0.5*(1+iX) in
   template<typename T>
   T mulPminusRight(const T &in){
-    static Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
-    static Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
-    static Gamma X = C*g5;
     static ComplexD _mI(0,-1);
-    T out = 0.5*(in + _mI * (in*X));
+    T out = 0.5*(in + _mI * (in*Xmatrix()));
     return out;
   }
+
+  //H = |P+     P-   |
+  //    |-XP-   -XP+ |  
+  template<typename T>
+  T mulHLeft(const T &in){
+    static GparityFlavour sigma1 = GparityFlavour(GparityFlavour::Algebra::SigmaX);
+    static GparityFlavour sigma2 = GparityFlavour(GparityFlavour::Algebra::SigmaY);
+    static GparityFlavour sigma3 = GparityFlavour(GparityFlavour::Algebra::SigmaZ);
+    static ComplexD h1pi(0.5,0.5);
+    static ComplexD h1mi(0.5,-0.5);
+
+    return mulPplusLeft(T(h1pi*in + h1mi*(sigma3*in))) + mulPminusLeft(T(h1mi*(sigma1*in) - h1mi*(sigma2*in)));
+  }
+  template<typename T>
+  T mulHdagLeft(const T &in){
+    static GparityFlavour sigma1 = GparityFlavour(GparityFlavour::Algebra::SigmaX);
+    static GparityFlavour sigma2 = GparityFlavour(GparityFlavour::Algebra::SigmaY);
+    static GparityFlavour sigma3 = GparityFlavour(GparityFlavour::Algebra::SigmaZ);
+    static ComplexD h1pi(0.5,0.5);
+    static ComplexD h1mi(0.5,-0.5);
+
+    return mulPplusLeft(T(h1mi*in + h1pi*(sigma3*in))) + mulPminusLeft(T(h1pi*(sigma1*in) - h1pi*(sigma2*in)));
+  }
+  template<typename T>
+  T mulHRight(const T &in){
+    static GparityFlavour sigma1 = GparityFlavour(GparityFlavour::Algebra::SigmaX);
+    static GparityFlavour sigma2 = GparityFlavour(GparityFlavour::Algebra::SigmaY);
+    static GparityFlavour sigma3 = GparityFlavour(GparityFlavour::Algebra::SigmaZ);
+    static ComplexD h1pi(0.5,0.5);
+    static ComplexD h1mi(0.5,-0.5);
+
+    return mulPplusRight(T(h1pi*in + h1mi*in*sigma3)) + mulPminusRight(T(h1mi*in*sigma1 - h1mi*in*sigma2));
+  }
+  template<typename T>
+  inline T mulHdagRight(const T &in){
+    static GparityFlavour sigma1 = GparityFlavour(GparityFlavour::Algebra::SigmaX);
+    static GparityFlavour sigma2 = GparityFlavour(GparityFlavour::Algebra::SigmaY);
+    static GparityFlavour sigma3 = GparityFlavour(GparityFlavour::Algebra::SigmaZ);
+    static ComplexD h1pi(0.5,0.5);
+    static ComplexD h1mi(0.5,-0.5);
+
+    return mulPplusRight(T(h1mi*in + h1pi*in*sigma3)) + mulPminusRight(T(h1pi*in*sigma1 - h1pi*in*sigma2));
+  }
+
+
 
 
   //Right multiply by U
@@ -138,16 +171,12 @@ namespace GridMeas{
     	  xconj_action_d.ExportPhysicalFermionSolution(sol5d, tmp4d);
 
     	  //Generate 2f X-conjugate output
-    	  PokeIndex<GparityFlavourIndex>(tmp2f, tmp4d, 0);
-    	  tmp4d = -(X*conjugate(tmp4d));
-    	  PokeIndex<GparityFlavourIndex>(tmp2f, tmp4d, 1);
+	  get2fXconjVector(tmp2f, tmp4d);
     	  insertColumn(V_4d, tmp2f, pm,s,c);
 
 	  if(do_midprop){
 	    tmp4d = extractMidProp(sol5d, xconj_action_d);
-	    PokeIndex<GparityFlavourIndex>(tmp2f, tmp4d, 0);
-	    tmp4d = -(X*conjugate(tmp4d));
-	    PokeIndex<GparityFlavourIndex>(tmp2f, tmp4d, 1);
+	    get2fXconjVector(tmp2f, tmp4d);
 	    insertColumn(V_4d_mid, tmp2f, pm,s,c);
 	  }
 

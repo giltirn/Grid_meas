@@ -44,12 +44,8 @@ int main(int argc, char** argv){
 
   Actions actions(ActionType::Mobius, Params, 0.01, 2.0, Ud, GridsD, Uf, GridsF);
   
-  //LatticeSCFmatrixD src = wallSource(0, GridsD.UGrid);
-
   //Should work with any spin-color source phi providing its flavor structure is diag(phi, phi*)  and [phi,X] = 0
-  static Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
-  static Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
-  static Gamma X = C*g5;
+  static Gamma X = Xmatrix();
 
   LatticeSpinColourMatrixD phi(GridsD.UGrid);
   gaussian(pRNG, phi);
@@ -60,6 +56,30 @@ int main(int argc, char** argv){
   PokeIndex<GparityFlavourIndex>(src, phi, 0,0);
   PokeIndex<GparityFlavourIndex>(src, conjugate(phi), 1,1);
   
+  //Test left and right multiplication by H
+  {
+    LatticeSCFmatrixD r1 = mulHdagLeft(mulHLeft(src));
+    LatticeSCFmatrixD r2 = mulHLeft(mulHdagLeft(src));
+    LatticeSCFmatrixD r3 = mulHdagRight(mulHRight(src));
+    LatticeSCFmatrixD r4 = mulHRight(mulHdagRight(src));
+    LatticeSCFmatrixD tmp(src.Grid());
+    tmp = r1 - src;
+    RealD diff1 = norm2(tmp);
+    tmp = r2 - src;
+    RealD diff2 = norm2(tmp);
+    tmp = r3 - src;
+    RealD diff3 = norm2(tmp);
+    tmp = r4 - src;
+    RealD diff4 = norm2(tmp);
+
+    std::cout << "Test H and H^-1 left and right multiplication (expect 0): " << diff1 << " " << diff2 << " " << diff3 << " " << diff4 << std::endl;
+    assert(diff1 < 1e-8);
+    assert(diff2 < 1e-8);
+    assert(diff3 < 1e-8);
+    assert(diff4 < 1e-8);
+  }
+
+
   LatticeSCFmatrixD sol_GP(GridsD.UGrid), midsol_GP(GridsD.UGrid);
   mixedPrecInvertGen(sol_GP, midsol_GP, src, *actions.action_d, *actions.action_f, 1e-8, 1e-5, true, 
 		     (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
@@ -74,10 +94,6 @@ int main(int argc, char** argv){
   diff = midsol_Xconj - midsol_GP;
   std::cout << "Midprop: Norm of difference (expect 0): " << norm2(diff) << std::endl;
   assert(norm2(diff) < 1e-8);
-
-  
-
-
 
   std::cout << GridLogMessage << " Done" << std::endl;
   Grid_finalize();
