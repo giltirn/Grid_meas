@@ -44,35 +44,35 @@ namespace GridMeas{
 
   //momentum wall sources
   //https://arxiv.org/pdf/1908.08640.pdf  eq 145 but with pseudoscalar not axial sink
-  //C(t) =   1/2 \sum_{\vec x, \vec y_1, \vec y_2} e^{-i( \vec p\cdot \vec x - \vec p_1 \cdot \vec y_1 - \vec p_2 \cdot \vec y_2 ) } tr [ \gamma^5\sigma_3 G(\vec x,t; \vec y_1,t_0)\eta(\vec y_1,t_0) \gamma^5\sigma_3 \Xi  \eta(\vec y_2,t_0)G(\vec y_2,t_0; \vec x, t) ]
+  //C(t) =   1/2 \sum_{\vec x, \vec y_1, \vec y_2} e^{i( \vec p\cdot \vec x - \vec p_1 \cdot \vec y_1 - \vec p_2 \cdot \vec y_2 ) } tr [ \gamma^5\sigma_3 G(\vec x,t; \vec y_1,t_0)\eta(\vec y_1,t_0) \gamma^5\sigma_3 \Xi  \eta(\vec y_2,t_0)G(\vec y_2,t_0; \vec x, t) ]
 
   //\vec p_1 + \vec p_2 = \vec p
 
   //\Xi is a projector 1/2(1+-sigma_2)
 
-  //C(t) =   1/2 \sum_{\vec x} e^{-i( \vec p\cdot \vec x ) } tr [ \gamma^5\sigma_3 R(\vec x,t; \vec p_1) \gamma^5\sigma_3 \Xi  S(\vec x,t; \vec p_2) ]
+  //C(t) =   1/2 \sum_{\vec x} e^{i( \vec p\cdot \vec x ) } tr [ \gamma^5\sigma_3 R(\vec x,t; \vec p_1) \gamma^5\sigma_3 \Xi  S(\vec x,t; \vec p_2) ]
 
-  //R(\vec x, t; \vec p_1) = \sum_{\vec y_1} e^{i \vec p_1 \cdot \vec y_1} G(\vec x, t; \vec y_1, t_0)\eta(\vec y_1, t_0)
+  //R(\vec x, t; \vec p_1) = \sum_{\vec y_1} e^{-i \vec p_1 \cdot \vec y_1} G(\vec x, t; \vec y_1, t_0)\eta(\vec y_1, t_0)
 
-  //S(\vec x, t; \vec p_2) = \sum_{\vec y_2} e^{i \vec p_2 \cdot \vec y_2} \eta(\vec y_2, t_0)  G(\vec y_2, t_0; \vec x, t)
-  //             = \sum_{\vec y_2} e^{i \vec p_2 \cdot \vec y_2} \eta(\vec y_2, t_0)\gamma^5 G^\dagger(\vec x, t; \vec y_2, t_0) \gamma^5
-  //             = \sum_{\vec y_2} e^{i \vec p_2 \cdot \vec y_2} \eta(\vec y_2, t_0)\gamma^5 [ \gamma^5 C^{-1} \sigma_2 G^T(\vec x, t; \vec y_2, t_0) C\gamma^5 \sigma_2] \gamma^5
-  //             = \sum_{\vec y_2} e^{i \vec p_2 \cdot \vec y_2} \eta(\vec y_2, t_0)C^{-1} \sigma_2 G^T(\vec x, t; \vec y_2, t_0) C \sigma_2
+  //S(\vec x, t; \vec p_2) = \sum_{\vec y_2} e^{-i \vec p_2 \cdot \vec y_2} \eta(\vec y_2, t_0)  G(\vec y_2, t_0; \vec x, t)
+  //             = \sum_{\vec y_2} e^{-i \vec p_2 \cdot \vec y_2} \eta(\vec y_2, t_0)\gamma^5 G^\dagger(\vec x, t; \vec y_2, t_0) \gamma^5
+  //             = \sum_{\vec y_2} e^{-i \vec p_2 \cdot \vec y_2} \eta(\vec y_2, t_0)\gamma^5 [ \gamma^5 C^{-1} \sigma_2 G^T(\vec x, t; \vec y_2, t_0) C\gamma^5 \sigma_2] \gamma^5
+  //             = \sum_{\vec y_2} e^{-i \vec p_2 \cdot \vec y_2} \eta(\vec y_2, t_0)C^{-1} \sigma_2 G^T(\vec x, t; \vec y_2, t_0) C \sigma_2
 
   //Iff \eta(\vec y_2, t_0) has diagonal spin, color, flavor structure
 
-  //             = C^{-1} \sigma_2 [ \sum_{\vec y_2} e^{i \vec p_2 \cdot \vec y_2} G(\vec x, t; \vec y_2, t_0)\eta(\vec y_2, t_0) ]^T C \sigma_2
+  //             = C^{-1} \sigma_2 [ \sum_{\vec y_2} e^{-i \vec p_2 \cdot \vec y_2} G(\vec x, t; \vec y_2, t_0)\eta(\vec y_2, t_0) ]^T C \sigma_2
   //             = C^{-1} \sigma_2 R(\vec x, t; \vec p_2)^T C \sigma_2
 
   //Should think about how this works with gauge fixing matrices in the sources themselves. Currently we just gauge fix the links themselves
 
-  std::vector<RealD> momWallSourcePionCorrelator(const std::vector<int> &p1, const std::vector<int> p2, int t0, const LatticeSCFmatrixD& R_p1, const LatticeSCFmatrixD& R_p2){
+  std::vector<RealD> momWallSourcePionCorrelator(const std::vector<int> &p1, const std::vector<int> &p2, int t0, const LatticeSCFmatrixD& R_p1, const LatticeSCFmatrixD& R_p2){
     std::cout << GridLogMessage << "Starting momentum wall source pion correlator with t0=" << t0 << std::endl;
     GridBase* UGrid = R_p1.Grid();
     std::vector<int> p = { p1[0]+p2[0], p1[1]+p2[1], p1[2]+p2[2] };
     std::vector<double> pphys = getPhysicalMomentum(p);
     std::cout << GridLogMessage << "Total momentum in base units = " << p << " and physical units = " << pphys << std::endl;
-    LatticeComplexD snk_phase_field = phaseField(pphys, R_p1.Grid()); //exp(-i \vec p \cdot \vec x)
+    LatticeComplexD snk_phase_field = conjugate(phaseField(pphys, R_p1.Grid())); //exp(i \vec p \cdot \vec x)
   
     GparityFlavour sigma3(GparityFlavour::Algebra::SigmaZ);
     GparityFlavour sigma2(GparityFlavour::Algebra::SigmaY);

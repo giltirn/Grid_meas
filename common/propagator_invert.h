@@ -94,7 +94,7 @@ namespace GridMeas{
 
   //No midprop, with evecs
   template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
-  typename FermionActionD::PropagatorField mixedPrecInvert(typename FermionActionD::PropagatorField &msrc, FermionActionD &action_d, FermionActionF &action_f, 
+  typename FermionActionD::PropagatorField mixedPrecInvert(const typename FermionActionD::PropagatorField &msrc, FermionActionD &action_d, FermionActionF &action_f, 
 							   double tol, double inner_tol,
 							   std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
     typename FermionActionD::PropagatorField tmp(msrc.Grid()), prop(msrc.Grid());

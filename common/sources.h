@@ -64,10 +64,9 @@ namespace GridMeas{
     return zone;
   }
 
-  //\eta(x,tau) = \delta_{tau,t} exp(i \vec p \cdot \vec x)
+  //\eta(x,tau) = \delta_{tau,t} exp(-i \vec p \cdot \vec x)
   LatticeSCFmatrixD momentumWallSource(const std::vector<double> &p, const int t, GridBase* UGrid){    
     LatticeComplexD phase_field = phaseField(p, UGrid); //exp(-i \vec p \cdot \vec x)
-    phase_field = conjugate(phase_field); //exp(+i \vec p \cdot \vec x)
     LatticeSCFmatrixD src = wallSource(t,UGrid);
     src = phase_field * src;
     return src;

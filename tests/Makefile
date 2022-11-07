@@ -65,3 +65,7 @@ test_propagator_invert_field_Xconj: test_propagator_invert_field_Xconj.cc
 test_adaptive_wilson_flow: test_adaptive_wilson_flow.cc
 	$(CXX) test_adaptive_wilson_flow.cc -c -o test_adaptive_wilson_flow.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_adaptive_wilson_flow.o -o test_adaptive_wilson_flow $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
+test_mom_projection: test_mom_projection.cc
+	$(CXX) test_mom_projection.cc -c -o test_mom_projection.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_mom_projection.o -o test_mom_projection $(CXXFLAGS) $(LDFLAGS) $(LIBS)
