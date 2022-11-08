@@ -63,6 +63,12 @@ std::cout << GridLogMessage << "Starting momentum wall source pion correlator wi
 int main(int argc, char** argv){
   Grid_init(&argc, &argv);
 
+  bool coswall = false;
+  for(int i=1;i<argc;i++){
+    std::string sarg(argv[i]);
+    if(sarg == "--coswall") coswall = true;
+  }
+
   int Ls = 12;
   Coordinate latt = GridDefaultLatt();
   int Lt = latt[3];
@@ -101,7 +107,7 @@ int main(int argc, char** argv){
   //Compute a propagator with momentum sources
   int t0 = 0;
   
-  LatticeSCFmatrixD eta = momentumWallSource(p1_phys, t0, GridsD.UGrid);
+  LatticeSCFmatrixD eta = coswall ? cosineWallSource(p1_phys, t0, GridsD.UGrid) : momentumWallSource(p1_phys, t0, GridsD.UGrid);
   LatticeSCFmatrixD prop = mixedPrecInvert(eta, *actions.action_d, *actions.action_f, 1e-8, 1e-5);
 
   std::vector<RealD> pion_rightproj_rightmom =  momWallSourcePionCorrelator(p1,p1,t0,prop,prop);
@@ -109,13 +115,16 @@ int main(int argc, char** argv){
   std::vector<RealD> pion_wrongproj_wrongmom =  momWallSourcePionCorrelator(mp1,mp1,t0,prop,prop);
   std::vector<RealD> pion_rightproj_wrongmom =  momWallSourcePionCorrelatorOppProj(mp1,mp1,t0,prop,prop);
 
-  std::cout << "The right projector will project only onto the right momentum +p, whereas the wrong projector will project onto +/-p" << std::endl;
+  if(coswall) std::cout << "For cosine sources both +/-p sink momenta are valid, but if we use the wrong projector we should get a smaller projection" << std::endl;
+  else std::cout << "The right projector will project only onto the right momentum +p, whereas the wrong projector will project onto +/-p" << std::endl;
 
   for(int t=0;t<latt[3];t++){
     std::cout << t << " rightproj,rightmom: " << pion_rightproj_rightmom[t] << " wrongproj,rightmom: " << pion_wrongproj_rightmom[t]
 	      << " rightproj,wrongmom: " << pion_rightproj_wrongmom[t] << " wrongproj,wrongmom: " << pion_wrongproj_wrongmom[t] << std::endl; 
-    assert(fabs(pion_rightproj_wrongmom[t]) < 1e-6);
-    assert(fabs(pion_wrongproj_wrongmom[t]) > 1e-4);
+    if(!coswall){
+      assert(fabs(pion_rightproj_wrongmom[t]) < 1e-6);
+      assert(fabs(pion_wrongproj_wrongmom[t]) > 1e-4);
+    }
   }
 
   std::cout << GridLogMessage << " Done" << std::endl;
