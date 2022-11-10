@@ -353,7 +353,7 @@ void run(const MeasArgs &args, const Opts &opts){
     EvecContainerType eval_s;
     if(opts.use_evecs_strange){
       std::cout << GridLogMessage << "Obtaining strange eigenvectors" << std::endl;
-      eval.generate(args.lanc_args, traj, *actions.strange.getAction<LanczosAction>(), U_lanczos, pRNG_lanczos, opts.evec_opts_s);
+      eval.generate(args.lanc_args_s, traj, *actions.strange.getAction<LanczosAction>(), U_lanczos, pRNG_lanczos, opts.evec_opts_s);
     }else{
       std::cout << GridLogMessage << "Not using strange eigenvectors" << std::endl;
     }
