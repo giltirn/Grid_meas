@@ -155,6 +155,7 @@ namespace GridMeas{
     PokeIndex<GparityFlavourIndex>(to, from, 0);
     tmp1f = -(Xmatrix()*conjugate(from));
     PokeIndex<GparityFlavourIndex>(to, tmp1f, 1);
+    to.Checkerboard() = from.Checkerboard();
   }
 
   //Convert a pair of 1f spin-color matrices into a spin-color-flavor matrix with X-conjugate columns
@@ -170,6 +171,7 @@ namespace GridMeas{
 
     assert(col1f::Ncols == 12);
     assert(col2f::Ncols == 24);
+    assert(from_0.Checkerboard() == from_1.Checkerboard());
     for(int sc=0;sc<12;sc++){
       //Flavor column 0
       tmpferm1f = col1f::extractColumn(from_0,sc);
@@ -181,6 +183,7 @@ namespace GridMeas{
       get2fXconjVector(tmpferm2f, tmpferm1f);
       col2f::insertColumn(to,tmpferm2f,sc+12); //mapping is c+3*(s+4*f) =  c+3*s+12*f = sc + 12*f
     }
+    to.Checkerboard() = from_0.Checkerboard();
   }
 
 };

@@ -73,3 +73,7 @@ test_adaptive_wilson_flow: test_adaptive_wilson_flow.cc
 test_mom_projection: test_mom_projection.cc
 	$(CXX) test_mom_projection.cc -c -o test_mom_projection.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_mom_projection.o -o test_mom_projection $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
+test_Xconj_prec: test_Xconj_prec.cc
+	$(CXX) test_Xconj_prec.cc -c -o test_Xconj_prec.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_Xconj_prec.o -o test_Xconj_prec $(CXXFLAGS) $(LDFLAGS) $(LIBS)
