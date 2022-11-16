@@ -40,10 +40,14 @@ namespace GridMeas{
     MixedPrecDeflatedGuesser(const std::vector<FieldF> & _evec,const std::vector<RealD> & _eval) : evec(_evec), eval(_eval) {};
     
     virtual void operator()(const FieldD &src,FieldD &guess) {
-      assert(evec.size() > 0);
       assert(evec.size()==eval.size());
-      auto N = evec.size();
-
+      auto N = evec.size();      
+      if(N==0){
+	guess = Zero();
+	guess.Checkerboard() = src.Checkerboard();
+	return;
+      }
+      
 #if 1
       FieldF src_f(evec[0].Grid()), guess_f(evec[0].Grid());
       precisionChange(src_f, src);
@@ -131,9 +135,14 @@ namespace GridMeas{
     XconjMixedPrecDeflatedGuesser(const std::vector<FieldF> & _evec,const std::vector<RealD> & _eval) : evec(_evec), eval(_eval) {};
     
     virtual void operator()(const FieldD &src,FieldD &guess) {
-      assert(evec.size() > 0);
       assert(evec.size()==eval.size());
       auto N = evec.size();
+      if(N==0){
+	guess = Zero();
+	guess.Checkerboard() = src.Checkerboard();
+	return;
+      }
+      
       FieldF src_f(evec[0].Grid()), guess_f(evec[0].Grid());
       precisionChange(src_f, src);
       guess_f = Zero();
@@ -177,7 +186,13 @@ namespace GridMeas{
     } 
 
     virtual void operator()(const FermionFieldD &src,FermionFieldD &guess) {
+      std::cout << GridLogMessage << "Applying double precision Xconj guesser with conversion to 2f using " << N << " eigenvectors" << std::endl;
       guess = Zero();
+      guess.Checkerboard() = src.Checkerboard();	    
+      if(N==0){
+	std::cout << GridLogMessage << "Guess norm2: " << norm2(guess) << std::endl;
+	return;
+      }      
       FermionFieldD tmp2f(src.Grid());
       FermionField1fD tmp1f(src.Grid());
 
@@ -187,7 +202,7 @@ namespace GridMeas{
 	PokeIndex<GparityFlavourIndex>(tmp2f,tmp1f,1);
 	axpy(guess, real(TensorRemove(innerProduct(tmp2f,src))) / eval[i],tmp2f,guess);
       }
-      guess.Checkerboard() = src.Checkerboard();
+      std::cout << GridLogMessage << "Guess norm2: " << norm2(guess) << std::endl;
     }
   };
   template<>
@@ -221,6 +236,12 @@ namespace GridMeas{
     } 
 
     virtual void operator()(const FermionFieldD &src,FermionFieldD &guess) {
+      if(N==0){
+	guess = Zero();
+	guess.Checkerboard() = src.Checkerboard();
+	return;
+      }
+      
       FermionFieldF src_f(evec[0].Grid()), guess_f(evec[0].Grid());
       precisionChange(src_f, src);
       guess_f = Zero();

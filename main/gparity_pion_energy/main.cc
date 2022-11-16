@@ -87,7 +87,7 @@ struct _action_call_wrapper<true>{
   static void mixedPrecInvertWithMidProp(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
 					 const LatticeSCFmatrixD &msrc, ActionD &action_d, ActionF &action_f, 
 					 double tol, double inner_tol, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
-    std::cout << "Inverting with G-parity action" << std::endl;
+    std::cout << GridLogMessage << "Inverting with G-parity action" << std::endl;
     std::vector<RealD> const* eval_ptr = eval.size() ? &eval : (std::vector<RealD> const*)nullptr;
     std::vector<EvecFieldType> const* evec_ptr = eval.size() ? &evec : (std::vector<EvecFieldType> const*)nullptr;
     GridMeas::mixedPrecInvertWithMidProp(prop, midprop, msrc, action_d, action_f, tol, inner_tol, eval_ptr, evec_ptr);
@@ -97,7 +97,7 @@ struct _action_call_wrapper<true>{
 						  const LatticeSCFmatrixD &msrc,
 						  ActionD &action_d, ActionD &subgrid_action_d, ActionF &subgrid_action_f,
 						  double tol, double inner_tol, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
-    std::cout << "Inverting with G-parity action" << std::endl;
+    std::cout << GridLogMessage << "Inverting with G-parity action" << std::endl;
     std::vector<RealD> const* eval_ptr = eval.size() ? &eval : (std::vector<RealD> const*)nullptr;
     std::vector<EvecFieldType> const* evec_ptr = eval.size() ? &evec : (std::vector<EvecFieldType> const*)nullptr;
     GridMeas::splitGridMixedPrecInvertWithMidProp(msol, msol_mid, msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, eval_ptr, evec_ptr);
@@ -109,7 +109,7 @@ struct _action_call_wrapper<false>{
   static void mixedPrecInvertWithMidProp(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
 					 const LatticeSCFmatrixD &msrc, ActionD &action_d, ActionF &action_f, 
 					 double tol, double inner_tol, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
-    std::cout << "Inverting with X-conjugate action" << std::endl;
+    std::cout << GridLogMessage <<"Inverting with X-conjugate action" << std::endl;
     std::vector<RealD> const* eval_ptr = eval.size() ? &eval : (std::vector<RealD> const*)nullptr;
     std::vector<EvecFieldType> const* evec_ptr = eval.size() ? &evec : (std::vector<EvecFieldType> const*)nullptr;
     GridMeas::mixedPrecInvertWithMidPropXconj(prop, midprop, msrc, action_d, action_f, tol, inner_tol, eval_ptr, evec_ptr);
@@ -119,7 +119,7 @@ struct _action_call_wrapper<false>{
 						  const LatticeSCFmatrixD &msrc,
 						  ActionD &action_d, ActionD &subgrid_action_d, ActionF &subgrid_action_f,
 						  double tol, double inner_tol, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
-    std::cout << "Inverting with X-conjugate action" << std::endl;
+    std::cout << GridLogMessage << "Inverting with X-conjugate action" << std::endl;
     assert(0);
   }
 };
@@ -353,7 +353,7 @@ void run(const MeasArgs &args, const Opts &opts){
     EvecContainerType eval_s;
     if(opts.use_evecs_strange){
       std::cout << GridLogMessage << "Obtaining strange eigenvectors" << std::endl;
-      eval.generate(args.lanc_args_s, traj, *actions.strange.getAction<LanczosAction>(), U_lanczos, pRNG_lanczos, opts.evec_opts_s);
+      eval_s.generate(args.lanc_args_s, traj, *actions.strange.getAction<LanczosAction>(), U_lanczos, pRNG_lanczos, opts.evec_opts_s);
     }else{
       std::cout << GridLogMessage << "Not using strange eigenvectors" << std::endl;
     }

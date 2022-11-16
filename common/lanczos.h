@@ -52,7 +52,12 @@ namespace GridMeas{
 			  const LanczosParameters &params,
 			  GridCartesian* Grid, GridRedBlackCartesian* rbGrid, const LatticeGaugeField &latt,  //expect lattice to have been initialized to something
 			  FermionAction &action, GridParallelRNG &rng){
-  
+    if(params.n_stop == 0 || params.n_want == 0){
+      eval.resize(0); evec.resize(0,rbGrid);
+      std::cout << "Skipping Lanczos as #evals required is zero" << std::endl;	
+      return;
+    }	
+    
     FermionField gauss_o(rbGrid);
     FermionField gauss(Grid);
     gaussian(rng, gauss);
@@ -85,8 +90,8 @@ namespace GridMeas{
     delete inner;
     delete tester;
 
-    std::cout << "Eigenvalues:" << std::endl;
-    for(int i=0;i<params.n_want;i++){
+    std::cout << "Converged " << eval.size() << " eigenvalues:" << std::endl;
+    for(int i=0;i<eval.size();i++){
       std::cout << i << " " << eval[i] << std::endl;
     }
   }
