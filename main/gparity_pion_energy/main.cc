@@ -534,8 +534,10 @@ int main(int argc, char** argv){
 
   if(args.evec_prec == 2){
     run<CayleyFermion5D<XconjugateWilsonImplD> >(args,opts);   
+    //run<CayleyFermion5D<GparityWilsonImplD> >(args,opts);   
   }else if(args.evec_prec == 1){
     run<CayleyFermion5D<XconjugateWilsonImplF> >(args,opts);
+    //run<CayleyFermion5D<GparityWilsonImplF> >(args,opts);   
   }else{
     assert(0);
   }

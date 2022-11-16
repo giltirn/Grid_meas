@@ -2,9 +2,27 @@
 #include<common/utils.h>
 #include<common/action.h>
 #include<common/lanczos.h>
+#include<common/field_utils.h>
 
 using namespace Grid;
 using namespace GridMeas;
+
+void test(const FermionFieldD &sol2f, const FermionFieldD &sol1f, const std::string &descr, const double tol){
+  RealD sz1 = norm2(sol1f);
+  RealD sz2 = norm2(sol2f);
+  FermionFieldD tmp = sol1f - sol2f;
+  RealD diff = norm2(tmp);
+  RealD reldiff = 2*diff/(sz1+sz2);
+  
+  std::cout << descr << ": " << sz1 << " " << sz2 << " diff " << diff << " reldiff " << reldiff << " (expect 0)" << std::endl;
+  assert(reldiff < tol);
+}
+void test(const FermionFieldD &sol2f, const FermionField1fD &sol1f, const std::string &descr, const double tol){
+  FermionFieldD sol1f_conv(sol1f.Grid());
+  get2fXconjVector(sol1f_conv, sol1f);
+  test(sol2f, sol1f_conv, descr, tol);
+}
+
 
 int main(int argc, char** argv){
   Grid_init(&argc, &argv);
@@ -40,19 +58,13 @@ int main(int argc, char** argv){
   Params.twists = Coordinate(std::vector<int>({1,1,1,1})); //APBC in t direction
 
   //Generate some fake X-conjugate eigenvectors and eigenvalues
-  Gamma C = Gamma(Gamma::Algebra::MinusGammaY) * Gamma(Gamma::Algebra::GammaT);
-  Gamma g5 = Gamma(Gamma::Algebra::Gamma5);
-  Gamma X = C*g5;
-
   int Nevec = 20;
   std::vector<FermionField1fD> evec_1f(Nevec, GridsD.FrbGrid);
   std::vector<FermionFieldD> evec_2f(Nevec, GridsD.FrbGrid);
   std::vector<RealD> eval(Nevec);
   for(int i=0;i<Nevec;i++){
     gaussian(pRNG,evec_1f[i]);
-    PokeIndex<GparityFlavourIndex>(evec_2f[i], evec_1f[i], 0);
-    FermionField1fD tmp = -(X*conjugate(evec_1f[i]));
-    PokeIndex<GparityFlavourIndex>(evec_2f[i], tmp, 1);
+    get2fXconjVector(evec_2f[i], evec_1f[i]);
     gaussian(sRNG, eval[i]);
     eval[i] = 0.1 + fabs(eval[i]); //positive-definite
   }
@@ -60,6 +72,8 @@ int main(int argc, char** argv){
   ////////////////////////////////////////////////////////////////////////////
   //       Double precision
   ////////////////////////////////////////////////////////////////////////////
+
+  std::cout << "Double precision" << std::endl;
 
   //Create the guessers
   XconjDeflatedGuesser<FermionField1fD> guesser_1f(evec_1f,eval);
@@ -71,39 +85,31 @@ int main(int argc, char** argv){
   gaussian(pRNG,src_1f);
 
   FermionFieldD src_2f(GridsD.FrbGrid);
-  PokeIndex<GparityFlavourIndex>(src_2f, src_1f, 0);
-  FermionField1fD tmp = -(X*conjugate(src_1f));
-  PokeIndex<GparityFlavourIndex>(src_2f, tmp, 1);
-
+  get2fXconjVector(src_2f, src_1f);
   std::cout << "Source norm " << norm2(src_2f) << std::endl;
 
+  FermionFieldD src_2f_nonXconj(GridsD.FrbGrid);
+  gaussian(pRNG,src_2f_nonXconj);
+  
   //Test
-  FermionFieldD sol_2f(GridsD.FrbGrid);
-  sol_2f = Zero();
+  FermionFieldD sol_2f(GridsD.FrbGrid); sol_2f = Zero();
   guesser_2f(src_2f, sol_2f);
 
-  FermionField1fD sol_1f(GridsD.FrbGrid);
-  sol_1f = Zero();
+  FermionField1fD sol_1f(GridsD.FrbGrid); sol_1f = Zero();
   guesser_1f(src_1f, sol_1f);
 
-  FermionFieldD sol_1f_conv(GridsD.FrbGrid);
-  PokeIndex<GparityFlavourIndex>(sol_1f_conv, sol_1f, 0);
-  tmp = -(X*conjugate(sol_1f));
-  PokeIndex<GparityFlavourIndex>(sol_1f_conv, tmp, 1);
+  test(sol_2f, sol_1f, "2f double vs 1f double (native) with Xconj src", 1e-5); 
 
-  FermionFieldD tmp2f = sol_1f_conv - sol_2f;
-  RealD diff = norm2(tmp2f);
-  std::cout << "Double precision guesser, diff " << diff << " (expect 0)" << std::endl;
-  assert(diff < 1e-5);
-
-  FermionFieldD sol_2f_econv(GridsD.FrbGrid);
-  sol_2f_econv = Zero();
+  FermionFieldD sol_2f_econv(GridsD.FrbGrid); sol_2f_econv = Zero();
   guesser_2f_econv(src_2f, sol_2f_econv);
-  tmp2f = sol_2f_econv - sol_2f;
-  diff = norm2(tmp2f);
-  std::cout << "Double precision guesser using X-conj evecs with internal conversion, diff " << diff << " (expect 0)" << std::endl;
-  assert(diff < 1e-5);
-
+  test(sol_2f, sol_2f_econv, "2f double vs 1f double (conv) with Xconj src", 1e-5); 
+  
+  FermionFieldD sol_2f_nonXconj(GridsD.FrbGrid); sol_2f_nonXconj = Zero();
+  guesser_2f(src_2f_nonXconj, sol_2f_nonXconj);
+  
+  sol_2f_econv = Zero();
+  guesser_2f_econv(src_2f_nonXconj, sol_2f_econv);
+  test(sol_2f_nonXconj, sol_2f_econv, "2f double vs 1f double (conv) with non-Xconj src", 1e-5); 
 
   ////////////////////////////////////////////////////////////////////////////
   //       Single precision
@@ -121,49 +127,24 @@ int main(int argc, char** argv){
   MixedPrecDeflatedGuesser<FermionFieldF, FermionFieldD> guesser_mx_2f(evec_2f_f,eval);
   XconjMixedPrecDeflatedGuesser2fConvert guesser_mx_2f_econv(evec_1f_f,eval);
     
-  tmp2f = sol_2f;
-  sol_2f = Zero();
-  guesser_mx_2f(src_2f, sol_2f);
-
-  RealD sz1 = norm2(tmp2f);
-  RealD sz2 = norm2(sol_2f);
-  FermionFieldD tmp2f_2 = tmp2f - sol_2f;
-  diff = norm2(tmp2f_2);
-  RealD reldiff = 2*diff/(sz1+sz2);
-  
-  std::cout << "2f mixed precision guesser vs double prec: " << sz1 << " " << sz2 << " diff " << diff << " reldiff " << reldiff << " (expect 0)" << std::endl;
-  assert(reldiff < 1e-5);
+  FermionFieldD sol_2f_mx(GridsD.FrbGrid); sol_2f_mx = Zero();
+  guesser_mx_2f(src_2f, sol_2f_mx);
+  test(sol_2f, sol_2f_mx, "2f double vs 2f mixed with Xconj src", 1e-5); 
 
   sol_1f = Zero();
   guesser_mx_1f(src_1f, sol_1f);
-
-  PokeIndex<GparityFlavourIndex>(sol_1f_conv, sol_1f, 0);
-  tmp = -(X*conjugate(sol_1f));
-  PokeIndex<GparityFlavourIndex>(sol_1f_conv, tmp, 1);
-
-  sz1 = norm2(sol_2f);
-  sz2 = norm2(sol_1f_conv);
-  tmp2f = sol_1f_conv - sol_2f;
-  diff = norm2(tmp2f);
-  reldiff = 2*diff/(sz1+sz2);
-
-  std::cout << "Mixed precision guesser, 2f vs 1f: " << sz1 << " " << sz2 << " diff " << diff<< " reldiff " << reldiff << " (expect 0)" << std::endl;
-  assert(reldiff < 1e-5);
+  test(sol_2f, sol_1f, "2f double vs 1f mixed (native) with Xconj src", 1e-5); 
 
   sol_2f_econv = Zero();
   guesser_mx_2f_econv(src_2f, sol_2f_econv);
+  test(sol_2f, sol_2f_econv, "2f double vs 1f mixed (conv) with Xconj src", 1e-5); 
 
-  sz1 = norm2(sol_2f);
-  sz2 = norm2(sol_2f_econv);
-  tmp2f = sol_2f_econv - sol_2f;
-  diff = norm2(tmp2f);
-  reldiff = 2*diff/(sz1+sz2);
-
-  std::cout << "Mixed precision guesser, 2f vs 1f internally converted to 2f: " << sz1 << " " << sz2 << " diff " << diff<< " reldiff " << reldiff << " (expect 0)" << std::endl;
-  assert(reldiff < 1e-5);
+  sol_2f_econv = Zero();
+  guesser_mx_2f_econv(src_2f_nonXconj, sol_2f_econv);
+  test(sol_2f_nonXconj, sol_2f_econv, "2f double vs 1f mixed (conv) with non-Xconj src", 1e-5); 
 
 
-  //Check getGuesser
+  std::cout << "Checking getGuesser" << std::endl;
   {
     LinearFunction<FermionFieldD>* gptr = getGuesser<FermionFieldD,FermionFieldD>(eval, evec_2f);
     DeflatedGuesser<FermionFieldD>* test = dynamic_cast<DeflatedGuesser<FermionFieldD>* >(gptr);

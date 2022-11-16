@@ -186,11 +186,9 @@ namespace GridMeas{
     } 
 
     virtual void operator()(const FermionFieldD &src,FermionFieldD &guess) {
-      std::cout << GridLogMessage << "Applying double precision Xconj guesser with conversion to 2f using " << N << " eigenvectors" << std::endl;
       guess = Zero();
       guess.Checkerboard() = src.Checkerboard();	    
       if(N==0){
-	std::cout << GridLogMessage << "Guess norm2: " << norm2(guess) << std::endl;
 	return;
       }      
       FermionFieldD tmp2f(src.Grid());
@@ -200,9 +198,8 @@ namespace GridMeas{
 	PokeIndex<GparityFlavourIndex>(tmp2f,evec[i],0);
 	tmp1f = -(Xmatrix()*conjugate(evec[i]));
 	PokeIndex<GparityFlavourIndex>(tmp2f,tmp1f,1);
-	axpy(guess, real(TensorRemove(innerProduct(tmp2f,src))) / eval[i],tmp2f,guess);
+	axpy(guess, TensorRemove(innerProduct(tmp2f,src)) / eval[i],tmp2f,guess);
       }
-      std::cout << GridLogMessage << "Guess norm2: " << norm2(guess) << std::endl;
     }
   };
   template<>
@@ -252,7 +249,7 @@ namespace GridMeas{
 	PokeIndex<GparityFlavourIndex>(tmp2f,evec[i],0);
 	tmp1f = -(Xmatrix()*conjugate(evec[i]));
 	PokeIndex<GparityFlavourIndex>(tmp2f,tmp1f,1);
-	axpy(guess_f, real(TensorRemove(innerProduct(tmp2f,src_f))) / eval[i],tmp2f,guess_f);
+	axpy(guess_f, TensorRemove(innerProduct(tmp2f,src_f)) / eval[i],tmp2f,guess_f);
       }
 
       precisionChange(guess, guess_f);
@@ -267,5 +264,25 @@ namespace GridMeas{
     }
   };
 
+
+
+
+  template<>
+  struct _get_guesser<FermionField1fD, FermionFieldF, 1>{    
+    inline static LinearFunction<FermionField1fD>* get(std::vector<Real> const& evals, std::vector<FermionFieldF> const &evecs){
+      std::cout << "Guesser not implemented for 2f-single -> 1f-double evecs" << std::endl;
+      assert(0);
+      return (LinearFunction<FermionField1fD>*)nullptr;
+    }
+  };
+
+  template<>
+  struct _get_guesser<FermionField1fD, FermionFieldD, 2>{    
+    inline static LinearFunction<FermionField1fD>* get(std::vector<Real> const& evals, std::vector<FermionFieldD> const &evecs){
+      std::cout << "Guesser not implemented for 2f-double -> 1f-double evecs" << std::endl;
+      assert(0);
+      return (LinearFunction<FermionField1fD>*)nullptr;
+    }
+  };
 
 };
