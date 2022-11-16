@@ -79,15 +79,16 @@ int main(int argc, char** argv){
     
   std::vector<LatticeSCFmatrixD> sol_basic(2, fullGridsD.UGrid);
   std::vector<LatticeSCFmatrixD> sol_split(2, fullGridsD.UGrid);
-  
+  MixedCGargs cg_args;
+
   //Do regular solves
   std::cout << GridLogMessage << "Performing regular inversion" << std::endl;
   for(int i=0;i<2;i++)
-    sol_basic[i] = mixedPrecInvert(src[i], *action_d, *action_f, 1e-8, 1e-5);
+    sol_basic[i] = mixedPrecInvert(src[i], *action_d, *action_f, cg_args);
 
   //Do split solves
   std::cout << GridLogMessage << "Performing split grid inversion" << std::endl;
-  splitGridMixedPrecInvert(sol_split, src, *action_d, *action_sub_d, *action_sub_f, 1e-8, 1e-5);
+  splitGridMixedPrecInvert(sol_split, src, *action_d, *action_sub_d, *action_sub_f, cg_args);
 
   //Compare
   for(int i=0;i<2;i++){

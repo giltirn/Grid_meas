@@ -17,8 +17,7 @@ struct MeasArgs: Serializable {
 				  bool, gfix_fourier_accelerate,
 				  double, ml,
 				  double, ms,
-				  double, cg_stop,
-				  double, cg_stop_inner,
+				  MixedCGargs, cg_args,
 				  int, nsrc,
 				  LanczosParameters, lanc_args,
 				  LanczosParameters, lanc_args_s,
@@ -36,8 +35,9 @@ struct MeasArgs: Serializable {
     ml = 0.01;
     ms = 0.032;
     mobius_scale = 2.0;
-    cg_stop = 1e-8;
-    cg_stop_inner = 1e-6;
+    cg_args.algorithm = MixedCGalgorithm::RestartedCG;
+    cg_args.tolerance = 1e-8;
+    cg_args.restartedcg_inner_tol = 1e-6;
     nsrc = 32;
     evec_prec = 2; //2=double 1=single
   }
@@ -86,21 +86,21 @@ struct _action_call_wrapper<true>{
   template<typename ActionD, typename ActionF, typename EvecFieldType>
   static void mixedPrecInvertWithMidProp(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
 					 const LatticeSCFmatrixD &msrc, ActionD &action_d, ActionF &action_f, 
-					 double tol, double inner_tol, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
+					 const MixedCGargs &args, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
     std::cout << GridLogMessage << "Inverting with G-parity action" << std::endl;
     std::vector<RealD> const* eval_ptr = eval.size() ? &eval : (std::vector<RealD> const*)nullptr;
     std::vector<EvecFieldType> const* evec_ptr = eval.size() ? &evec : (std::vector<EvecFieldType> const*)nullptr;
-    GridMeas::mixedPrecInvertWithMidProp(prop, midprop, msrc, action_d, action_f, tol, inner_tol, eval_ptr, evec_ptr);
+    GridMeas::mixedPrecInvertWithMidProp(prop, midprop, msrc, action_d, action_f, args, eval_ptr, evec_ptr);
   }
   template<typename ActionD, typename ActionF, typename EvecFieldType>
   static void splitGridMixedPrecInvertWithMidProp(LatticeSCFmatrixD &msol, LatticeSCFmatrixD &msol_mid,
 						  const LatticeSCFmatrixD &msrc,
 						  ActionD &action_d, ActionD &subgrid_action_d, ActionF &subgrid_action_f,
-						  double tol, double inner_tol, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
+						  const MixedCGargs &args, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
     std::cout << GridLogMessage << "Inverting with G-parity action" << std::endl;
     std::vector<RealD> const* eval_ptr = eval.size() ? &eval : (std::vector<RealD> const*)nullptr;
     std::vector<EvecFieldType> const* evec_ptr = eval.size() ? &evec : (std::vector<EvecFieldType> const*)nullptr;
-    GridMeas::splitGridMixedPrecInvertWithMidProp(msol, msol_mid, msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, eval_ptr, evec_ptr);
+    GridMeas::splitGridMixedPrecInvertWithMidProp(msol, msol_mid, msrc, action_d, subgrid_action_d, subgrid_action_f, args, eval_ptr, evec_ptr);
   }
 };
 template<>
@@ -108,17 +108,17 @@ struct _action_call_wrapper<false>{
   template<typename ActionD, typename ActionF, typename EvecFieldType>
   static void mixedPrecInvertWithMidProp(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
 					 const LatticeSCFmatrixD &msrc, ActionD &action_d, ActionF &action_f, 
-					 double tol, double inner_tol, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
+					 const MixedCGargs &args, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
     std::cout << GridLogMessage <<"Inverting with X-conjugate action" << std::endl;
     std::vector<RealD> const* eval_ptr = eval.size() ? &eval : (std::vector<RealD> const*)nullptr;
     std::vector<EvecFieldType> const* evec_ptr = eval.size() ? &evec : (std::vector<EvecFieldType> const*)nullptr;
-    GridMeas::mixedPrecInvertWithMidPropXconj(prop, midprop, msrc, action_d, action_f, tol, inner_tol, eval_ptr, evec_ptr);
+    GridMeas::mixedPrecInvertWithMidPropXconj(prop, midprop, msrc, action_d, action_f, args, eval_ptr, evec_ptr);
   }
   template<typename ActionD, typename ActionF, typename EvecFieldType>
   static void splitGridMixedPrecInvertWithMidProp(LatticeSCFmatrixD &msol, LatticeSCFmatrixD &msol_mid,
 						  const LatticeSCFmatrixD &msrc,
 						  ActionD &action_d, ActionD &subgrid_action_d, ActionF &subgrid_action_f,
-						  double tol, double inner_tol, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
+						  const MixedCGargs &args, const std::vector<RealD> &eval, const std::vector<EvecFieldType> &evec){
     std::cout << GridLogMessage << "Inverting with X-conjugate action" << std::endl;
     assert(0);
   }
@@ -159,15 +159,15 @@ struct EvecContainer{
   template<typename ActionD, typename ActionF>
   void mixedPrecInvertWithMidProp(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
 				  const LatticeSCFmatrixD &msrc, ActionD &action_d, ActionF &action_f, 
-				  double tol, double inner_tol) const{
-    _action_call_wrapper<ActionD::isGparity>::mixedPrecInvertWithMidProp(prop, midprop, msrc, action_d, action_f, tol, inner_tol, eval, evec);
+				  const MixedCGargs &args) const{
+    _action_call_wrapper<ActionD::isGparity>::mixedPrecInvertWithMidProp(prop, midprop, msrc, action_d, action_f, args, eval, evec);
   }
   template<typename ActionD, typename ActionF>
   void splitGridMixedPrecInvertWithMidProp(LatticeSCFmatrixD &msol, LatticeSCFmatrixD &msol_mid,
 					   const LatticeSCFmatrixD &msrc,
 					   ActionD &action_d, ActionD &subgrid_action_d, ActionF &subgrid_action_f,
-					   double tol, double inner_tol) const{
-    _action_call_wrapper<ActionD::isGparity>::splitGridMixedPrecInvertWithMidProp(msol, msol_mid, msrc, action_d, subgrid_action_d, subgrid_action_f, tol, inner_tol, eval, evec);
+					   const MixedCGargs &args) const{
+    _action_call_wrapper<ActionD::isGparity>::splitGridMixedPrecInvertWithMidProp(msol, msol_mid, msrc, action_d, subgrid_action_d, subgrid_action_f, args, eval, evec);
   }
 };
 
@@ -384,9 +384,9 @@ void run(const MeasArgs &args, const Opts &opts){
 	std::cout << GridLogMessage << "Starting light quark inverse" << std::endl;
 	if(opts.use_split_grid)
 	  eval.splitGridMixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.action_d, *actions_sub.light.action_d, 
-						   *actions_sub.light.action_f, args.cg_stop, args.cg_stop_inner);
+						   *actions_sub.light.action_f, args.cg_args);
 	else
-	  eval.mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.action_d, *actions.light.action_f, args.cg_stop, args.cg_stop_inner);
+	  eval.mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.action_d, *actions.light.action_f, args.cg_args);
       
 	const LatticeSCFmatrixD &Rp2 = Rp1;
 	const LatticeSCFmatrixD &Rp2_mid = Rp1_mid;
@@ -396,9 +396,9 @@ void run(const MeasArgs &args, const Opts &opts){
 	LatticeSCFmatrixD Rp1_s(GridsD.UGrid), Rp1_s_mid(GridsD.UGrid);
 	if(opts.use_split_grid)
 	  eval_s.splitGridMixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.action_d, *actions_sub.strange.action_d, 
-						     *actions_sub.strange.action_f, args.cg_stop, args.cg_stop_inner);
+						     *actions_sub.strange.action_f, args.cg_args);
 	else
-	  eval_s.mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.action_d, *actions.strange.action_f, args.cg_stop, args.cg_stop_inner);      
+	  eval_s.mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.action_d, *actions.strange.action_f, args.cg_args);      
 
 	addResult(Ct_pion_momwall, momWallSourcePionCorrelator(p1, p2, t0, Rp1, Rp2), args.nsrc);
 	addResult(Ct_j5q_momwall, momWallSourcePionCorrelator(p1, p2, t0, Rp1_mid, Rp2_mid), args.nsrc);
@@ -415,9 +415,9 @@ void run(const MeasArgs &args, const Opts &opts){
 	std::cout << GridLogMessage << "Starting light quark inverse" << std::endl;
 	if(opts.use_split_grid)
 	  eval.splitGridMixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.xconj_action_d, *actions_sub.light.xconj_action_d, 
-						   *actions_sub.light.xconj_action_f, args.cg_stop, args.cg_stop_inner);
+						   *actions_sub.light.xconj_action_f, args.cg_args);
 	else
-	  eval.mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.xconj_action_d, *actions.light.xconj_action_f, args.cg_stop, args.cg_stop_inner);
+	  eval.mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.xconj_action_d, *actions.light.xconj_action_f, args.cg_args);
       
 	const LatticeSCFmatrixD &Rp2 = Rp1;
 	const LatticeSCFmatrixD &Rp2_mid = Rp1_mid;
@@ -427,9 +427,9 @@ void run(const MeasArgs &args, const Opts &opts){
 	LatticeSCFmatrixD Rp1_s(GridsD.UGrid), Rp1_s_mid(GridsD.UGrid);
 	if(opts.use_split_grid)
 	  eval_s.splitGridMixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.xconj_action_d, *actions_sub.strange.xconj_action_d, 
-						     *actions_sub.strange.xconj_action_f, args.cg_stop, args.cg_stop_inner);
+						     *actions_sub.strange.xconj_action_f, args.cg_args);
 	else
-	  eval_s.mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.xconj_action_d, *actions.strange.xconj_action_f, args.cg_stop, args.cg_stop_inner);      
+	  eval_s.mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.xconj_action_d, *actions.strange.xconj_action_f, args.cg_args);      
 
 	addResult(Ct_pion_coswall, momWallSourcePionCorrelator(p1, p2, t0, Rp1, Rp2), args.nsrc);
 	addResult(Ct_j5q_coswall, momWallSourcePionCorrelator(p1, p2, t0, Rp1_mid, Rp2_mid), args.nsrc);

@@ -99,7 +99,7 @@ namespace GridMeas{
   template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
   void mixedPrecInvertGenXconj(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
 			       const LatticeSCFmatrixD &msrc, FermionActionD &xconj_action_d, FermionActionF &xconj_action_f, 
-			       double tol, double inner_tol,
+			       const MixedCGargs &args,
 			       bool do_midprop,
 			       std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
     //Check the source has the right structure
@@ -123,7 +123,7 @@ namespace GridMeas{
 
     for(int fcol=0;fcol<Ngp;fcol++){
       src_fcol = PeekIndex<GparityFlavourIndex>(src_rotated,0,fcol); //only need upper flavor component as X-conjugate
-      mixedPrecInvertGen(prop_fcol[fcol], midprop_fcol[fcol], src_fcol, xconj_action_d, xconj_action_f, tol, inner_tol, do_midprop, evals, evecs);
+      mixedPrecInvertGen(prop_fcol[fcol], midprop_fcol[fcol], src_fcol, xconj_action_d, xconj_action_f, args, do_midprop, evals, evecs);
     }    
 
     get2fXconjMatrix(prop, prop_fcol[0],prop_fcol[1]);
@@ -138,16 +138,16 @@ namespace GridMeas{
 
   //No midprop, with evecs
   template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
-  LatticeSCFmatrixD mixedPrecInvertXconj(const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, double tol, double inner_tol,
+  LatticeSCFmatrixD mixedPrecInvertXconj(const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, const MixedCGargs &args,
 					 std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
     LatticeSCFmatrixD tmp(msrc.Grid()), prop(msrc.Grid());
-    mixedPrecInvertGenXconj(prop,tmp,msrc,action_d,action_f,tol,inner_tol,false,evals,evecs);
+    mixedPrecInvertGenXconj(prop,tmp,msrc,action_d,action_f,args,false,evals,evecs);
     return prop;
   }
   //No midprop, no evecs
   template<typename FermionActionD, typename FermionActionF>
-  LatticeSCFmatrixD mixedPrecInvertXconj(const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, double tol, double inner_tol){
-    return mixedPrecInvertXconj(msrc,action_d,action_f,tol,inner_tol,(std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
+  LatticeSCFmatrixD mixedPrecInvertXconj(const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, const MixedCGargs &args){
+    return mixedPrecInvertXconj(msrc,action_d,action_f,args,(std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
   }
 
 
@@ -155,16 +155,16 @@ namespace GridMeas{
   template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
   void mixedPrecInvertWithMidPropXconj(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
 				       const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, 
-				       double tol, double inner_tol,
+				       const MixedCGargs &args,
 				       std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
-    mixedPrecInvertGenXconj(prop,midprop,msrc,action_d,action_f,tol,inner_tol,true,evals,evecs);
+    mixedPrecInvertGenXconj(prop,midprop,msrc,action_d,action_f,args,true,evals,evecs);
   }    
   //With midprop, no evecs
   template<typename FermionActionD, typename FermionActionF>
   void mixedPrecInvertWithMidPropXconj(LatticeSCFmatrixD &prop, LatticeSCFmatrixD &midprop, 
 				       const LatticeSCFmatrixD &msrc, FermionActionD &action_d, FermionActionF &action_f, 
-				       double tol, double inner_tol){
-    mixedPrecInvertWithMidPropXconj(prop, midprop, msrc, action_d, action_f, tol, inner_tol, (std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
+				       const MixedCGargs &args){
+    mixedPrecInvertWithMidPropXconj(prop, midprop, msrc, action_d, action_f, args, (std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
   }
 
 

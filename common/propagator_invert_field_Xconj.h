@@ -10,16 +10,15 @@ namespace GridMeas{
   //and the use of 1f eigenvectors internally
   template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
   void mixedPrecInvertFieldXconj(FermionFieldD &sol, const FermionFieldD &src, FermionActionD &xconj_action_d, FermionActionF &xconj_action_f, 
-			  double tol, double inner_tol,
+			  const MixedCGargs &args,
 			  std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
     conformable(src.Grid(), sol.Grid());
     std::cout << GridLogMessage << "Starting source inversion" << std::endl;
     SchurDiagMooeeOperator<FermionActionD,FermionField1fD> hermop_d(xconj_action_d);
     SchurDiagMooeeOperator<FermionActionF,FermionField1fF> hermop_f(xconj_action_f);
-  
-    MixedPrecisionConjugateGradient<FermionField1fD, FermionField1fF> mcg(tol, 10000,10000, xconj_action_f.FermionRedBlackGrid(), hermop_f, hermop_d);
-    mcg.InnerTolerance = inner_tol;
-    MixedCGwrapper<FermionField1fD, FermionField1fF> mcg_wrap(mcg);
+
+    LinearFunction<FermionField1fD>* mcg = MixedCGfactory(args, xconj_action_f.FermionRedBlackGrid(),  hermop_f, hermop_d);
+    LinearFunctionWrapper<FermionField1fD> mcg_wrap(*mcg);
 
     LinearFunction<FermionField1fD> *guesser = nullptr;
     if(evecs != nullptr && evals != nullptr)
@@ -68,11 +67,12 @@ namespace GridMeas{
     }    
 
     if(guesser) delete guesser;
+    delete mcg;
   }
 
   template<typename FermionActionD, typename FermionActionF>
   void mixedPrecInvertFieldXconj(FermionFieldD &sol, const FermionFieldD &src, FermionActionD &xconj_action_d, FermionActionF &xconj_action_f, 
-				 double tol, double inner_tol){
-    mixedPrecInvertFieldXconj(sol,src,xconj_action_d,xconj_action_f,tol,inner_tol,(std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
+				 const MixedCGargs &args){
+    mixedPrecInvertFieldXconj(sol,src,xconj_action_d,xconj_action_f,args,(std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
   }
 };

@@ -49,12 +49,13 @@ int main(int argc, char** argv){
 
   int t0=0;
   LatticeSCFmatrixD src = cosineWallSource(p_phys,t0,GridsD.UGrid);
+  MixedCGargs cg_args;
 
   LatticeSCFmatrixD sol_GP(GridsD.UGrid), midsol_GP(GridsD.UGrid);
-  mixedPrecInvertWithMidProp(sol_GP, midsol_GP, src, *actions.action_d, *actions.action_f, 1e-8, 1e-5);
+  mixedPrecInvertWithMidProp(sol_GP, midsol_GP, src, *actions.action_d, *actions.action_f, cg_args);
 
   LatticeSCFmatrixD sol_Xconj(GridsD.UGrid), midsol_Xconj(GridsD.UGrid);
-  mixedPrecInvertWithMidPropXconj(sol_Xconj, midsol_Xconj, src, *actions.xconj_action_d, *actions.xconj_action_f, 1e-8, 1e-5);
+  mixedPrecInvertWithMidPropXconj(sol_Xconj, midsol_Xconj, src, *actions.xconj_action_d, *actions.xconj_action_f, cg_args);
 
   LatticeSCFmatrixD diff = sol_Xconj - sol_GP;
   std::cout << "Prop: Norm of difference (expect 0): " << norm2(diff) << std::endl;

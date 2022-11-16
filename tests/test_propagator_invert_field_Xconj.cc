@@ -87,9 +87,9 @@ int main(int argc, char** argv){
     gaussian(pRNG,src); //no restrictions on src
 
     FermionFieldD sol_GP(GridsD.UGrid), sol_Xconj(GridsD.UGrid);
-
-    mixedPrecInvertField(sol_GP, src, *actions.action_d, *actions.action_f, 1e-8, 1e-5, (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
-    mixedPrecInvertFieldXconj(sol_Xconj, src, *actions.xconj_action_d, *actions.xconj_action_f, 1e-8, 1e-5, (std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
+    MixedCGargs cg_args;
+    mixedPrecInvertField(sol_GP, src, *actions.action_d, *actions.action_f, cg_args);
+    mixedPrecInvertFieldXconj(sol_Xconj, src, *actions.xconj_action_d, *actions.xconj_action_f, cg_args);
     FermionFieldD diff = sol_Xconj - sol_GP;
     std::cout << "Norm of difference (expect 0): " << norm2(diff) << std::endl;
     assert(norm2(diff) < 1e-8);

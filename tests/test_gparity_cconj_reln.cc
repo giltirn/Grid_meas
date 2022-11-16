@@ -62,10 +62,10 @@ int main(int argc, char** argv){
   Gamma mgamma2(Gamma::Algebra::MinusGammaY);
   Gamma gamma4(Gamma::Algebra::MinusGammaT);
   
-
+  MixedCGargs cg_args;
   {
     LatticeSCFmatrixD rsrc = Z2wallSource(1, pRNG, UGridD); //source needs to be real and have unit spin and flavor structure
-    LatticeSCFmatrixD prop = mixedPrecInvert(rsrc, *action_d, *action_f, 1e-8, 1e-5);
+    LatticeSCFmatrixD prop = mixedPrecInvert(rsrc, *action_d, *action_f, cg_args);
     
     //G* = g5 Cinv sigma2 G sigma2 C g5
     //C = -g2 g4
@@ -79,7 +79,7 @@ int main(int argc, char** argv){
     
     RealD norm2_diff = norm2(diff);
     std::cout << "CConj relation on real Z2wall propagator: lhs=" << norm2(lhs) << " rhs=" << norm2(rhs) << " diff=" << norm2_diff << " expect 0" << std::endl;
-    assert(norm2_diff < 1e-10);
+    assert(norm2_diff < 1e-8);
   }
 
   {
@@ -109,13 +109,13 @@ int main(int argc, char** argv){
     //Compute R
     LatticeSCFmatrixD Rpsrc = z2_src * p_phase_field;
     
-    LatticeSCFmatrixD Rp = mixedPrecInvert(Rpsrc, *action_d, *action_f, 1e-8, 1e-5);
+    LatticeSCFmatrixD Rp = mixedPrecInvert(Rpsrc, *action_d, *action_f, cg_args);
     
     //Construct S the hard way
     //S(\vec x, t; \vec p_2) = \gamma^5 [ \sum_{\vec y_2} e^{-i \vec p_2 \cdot \vec y_2}  G(\vec x, t; \vec y_2, t_0) ] ^\dagger\gamma^5
 
     LatticeSCFmatrixD Spsrc = z2_src * mp_phase_field;
-    LatticeSCFmatrixD Sp = mixedPrecInvert(Spsrc, *action_d, *action_f, 1e-8, 1e-5);
+    LatticeSCFmatrixD Sp = mixedPrecInvert(Spsrc, *action_d, *action_f, cg_args);
     Sp = adj(Sp); //-p -> p
     Sp = gamma5 * Sp * gamma5;
 

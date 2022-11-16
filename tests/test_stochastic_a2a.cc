@@ -51,9 +51,9 @@ int main(int argc, char** argv){
   typename SiteSpinorD::scalar_object pt;
   pt(0)(0)(0) = 1.0;
   pokeSite(pt,point_src,site);
-
+  MixedCGargs cg_args;
   FermionFieldD point_sol(GridsD.UGrid);
-  mixedPrecInvertField(point_sol, point_src, *actions.action_d, *actions.action_f, 1e-8, 1e-5, (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
+  mixedPrecInvertField(point_sol, point_src, *actions.action_d, *actions.action_f, cg_args, (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
 
   FermionFieldD rsum(GridsD.UGrid), wsum(GridsD.UGrid);
   rsum = Zero();
@@ -63,7 +63,7 @@ int main(int argc, char** argv){
   for(int h=0;h<hits;h++){
     FermionFieldD rnd_src = randomGaussianVolumeSource(pRNG, GridsD.UGrid);
     FermionFieldD rnd_sol(GridsD.UGrid);
-    mixedPrecInvertField(rnd_sol, rnd_src, *actions.action_d, *actions.action_f, 1e-8, 1e-5, (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
+    mixedPrecInvertField(rnd_sol, rnd_src, *actions.action_d, *actions.action_f, cg_args, (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
     //rnd_sol = rnd_src;
 
     typename SiteSpinorD::scalar_object src_p = conjugate(peekSite(rnd_src, site));

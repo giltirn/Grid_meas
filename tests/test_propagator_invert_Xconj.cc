@@ -78,14 +78,14 @@ int main(int argc, char** argv){
     assert(diff3 < 1e-8);
     assert(diff4 < 1e-8);
   }
-
+  MixedCGargs cg_args;
 
   LatticeSCFmatrixD sol_GP(GridsD.UGrid), midsol_GP(GridsD.UGrid);
-  mixedPrecInvertGen(sol_GP, midsol_GP, src, *actions.action_d, *actions.action_f, 1e-8, 1e-5, true, 
+  mixedPrecInvertGen(sol_GP, midsol_GP, src, *actions.action_d, *actions.action_f, cg_args, true, 
 		     (std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
 
   LatticeSCFmatrixD sol_Xconj(GridsD.UGrid), midsol_Xconj(GridsD.UGrid);
-  mixedPrecInvertGenXconj(sol_Xconj, midsol_Xconj, src, *actions.xconj_action_d, *actions.xconj_action_f, 1e-8, 1e-5, true, 
+  mixedPrecInvertGenXconj(sol_Xconj, midsol_Xconj, src, *actions.xconj_action_d, *actions.xconj_action_f, cg_args, true, 
   			  (std::vector<Real> const*)nullptr, (std::vector<FermionField1fD> const *)nullptr);
 
   LatticeSCFmatrixD diff = sol_Xconj - sol_GP;

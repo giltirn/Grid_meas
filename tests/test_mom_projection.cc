@@ -106,9 +106,10 @@ int main(int argc, char** argv){
 
   //Compute a propagator with momentum sources
   int t0 = 0;
-  
-  LatticeSCFmatrixD eta = coswall ? cosineWallSource(p1_phys, t0, GridsD.UGrid) : momentumWallSource(p1_phys, t0, GridsD.UGrid);
-  LatticeSCFmatrixD prop = mixedPrecInvert(eta, *actions.action_d, *actions.action_f, 1e-8, 1e-5);
+  MixedCGargs cg_args;
+
+  LatticeSCFmatrixD eta = coswall ? cosineWallSource(p1_phys, t0, GridsD.UGrid) : momentumWallSource(p1_phys, t0, GridsD.UGrid); 
+  LatticeSCFmatrixD prop = mixedPrecInvert(eta, *actions.action_d, *actions.action_f, cg_args);
 
   std::vector<RealD> pion_rightproj_rightmom =  momWallSourcePionCorrelator(p1,p1,t0,prop,prop);
   std::vector<RealD> pion_wrongproj_rightmom =  momWallSourcePionCorrelatorOppProj(p1,p1,t0,prop,prop);

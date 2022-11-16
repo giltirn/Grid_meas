@@ -9,21 +9,19 @@ namespace GridMeas{
   //Invert the propagator against a field using the X-conjugate action under the hood
   template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
   void mixedPrecInvertField(FermionFieldD &sol, const FermionFieldD &src, FermionActionD &action_d, FermionActionF &action_f, 
-			  double tol, double inner_tol,
+			  const MixedCGargs &args,
 			  std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
     std::cout << GridLogMessage << "Starting source inversion" << std::endl;
     SchurDiagMooeeOperator<FermionActionD,FermionFieldD> hermop_d(action_d);
     SchurDiagMooeeOperator<FermionActionF,FermionFieldF> hermop_f(action_f);
   
-    MixedPrecisionConjugateGradient<FermionFieldD, FermionFieldF> mcg(tol, 10000,10000, action_f.FermionRedBlackGrid(), hermop_f, hermop_d);
-    mcg.InnerTolerance = inner_tol;
-    MixedCGwrapper<FermionFieldD, FermionFieldF> mcg_wrap(mcg);
+    LinearFunction<FermionFieldD>* mcg = MixedCGfactory(args, action_f.FermionRedBlackGrid(),  hermop_f, hermop_d);
+    LinearFunctionWrapper<FermionFieldD> mcg_wrap(*mcg);
 
     LinearFunction<FermionFieldD> *guesser = nullptr;
     if(evecs != nullptr && evals != nullptr)
       guesser = getGuesser<FermionFieldD>(*evals,*evecs);
 
-    //ConjugateGradient<FermionField> CG(tol,10000);
     SchurRedBlackDiagMooeeSolve<FermionFieldD> solver(mcg_wrap);
   
     GridBase* FGridD = action_d.FermionGrid();
@@ -46,8 +44,13 @@ namespace GridMeas{
     action_d.ExportPhysicalFermionSolution(sol_5d, sol);
     
     if(guesser) delete guesser;
+    delete mcg;
     std::cout << GridLogMessage << "Source inversion complete" << std::endl;
   }
 
-
+  template<typename FermionActionD, typename FermionActionF>
+  void mixedPrecInvertField(FermionFieldD &sol, const FermionFieldD &src, FermionActionD &action_d, FermionActionF &action_f, 
+			    const MixedCGargs &args){
+    mixedPrecInvertField(sol,src,action_d,action_f,args,(std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
+  }
 };

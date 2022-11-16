@@ -74,11 +74,15 @@ int main(int argc, char** argv){
   LatticeSCFmatrixD src_t4 = wallSource(4, UGridD);
   src_t4 = src_t4 * p_src_phase_field;
   
+  MixedCGargs cg_args;
+  cg_args.tolerance = 1e-10;
+  cg_args.restartedcg_inner_tol = 1e-6;
+
   LatticeSCFmatrixD R_t1(UGridD);
-  R_t1 = mixedPrecInvert(src_t1, *action_d, *action_f, 1e-10, 1e-6);
+  R_t1 = mixedPrecInvert(src_t1, *action_d, *action_f, cg_args);
 
   LatticeSCFmatrixD R_h_t1(UGridD);
-  R_h_t1 = mixedPrecInvert(src_t1, *action_s_d, *action_s_f, 1e-10, 1e-6);
+  R_h_t1 = mixedPrecInvert(src_t1, *action_s_d, *action_s_f, cg_args);
 
   {
     LatticeSCFmatrixD test = R_t1 * adj(R_h_t1);
@@ -91,10 +95,10 @@ int main(int argc, char** argv){
   }
 
   LatticeSCFmatrixD R_t4(UGridD);
-  R_t4 = mixedPrecInvert(src_t4, *action_d, *action_f, 1e-10, 1e-6);
+  R_t4 = mixedPrecInvert(src_t4, *action_d, *action_f, cg_args);
 
   LatticeSCFmatrixD R_h_t4(UGridD);
-  R_h_t4 = mixedPrecInvert(src_t4, *action_s_d, *action_s_f, 1e-10, 1e-6);
+  R_h_t4 = mixedPrecInvert(src_t4, *action_s_d, *action_s_f, cg_args);
 
 
   {
