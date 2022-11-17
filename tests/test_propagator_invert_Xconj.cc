@@ -44,18 +44,27 @@ int main(int argc, char** argv){
 
   Actions actions(ActionType::Mobius, Params, 0.01, 2.0, Ud, GridsD, Uf, GridsF);
   
-  //Should work with any spin-color source phi providing its flavor structure is diag(phi, phi*)  and [phi,X] = 0
-  static Gamma X = Xmatrix();
+  //Should work with any matrix of the form
+  //|  A       B   |
+  //| XB*X   -XA*X |
 
-  LatticeSpinColourMatrixD phi(GridsD.UGrid);
-  gaussian(pRNG, phi);
-  phi = X*phi + phi*X;
+  LatticePropagator A(GridsD.UGrid);
+  gaussian(pRNG, A);
 
+  LatticePropagator B(GridsD.UGrid);
+  gaussian(pRNG, B);
+  
+  LatticePropagator C = Xmatrix()*(conjugate(B)*Xmatrix());
+  LatticePropagator D = -(Xmatrix()*(conjugate(A)*Xmatrix()));
+  
   LatticeSCFmatrixD src(GridsD.UGrid);
   src = Zero();
-  PokeIndex<GparityFlavourIndex>(src, phi, 0,0);
-  PokeIndex<GparityFlavourIndex>(src, conjugate(phi), 1,1);
-  
+
+  PokeIndex<GparityFlavourIndex>(src, A, 0,0);
+  PokeIndex<GparityFlavourIndex>(src, B, 0,1);
+  PokeIndex<GparityFlavourIndex>(src, C, 1,0);
+  PokeIndex<GparityFlavourIndex>(src, D, 1,1);
+ 
   //Test left and right multiplication by H
   {
     LatticeSCFmatrixD r1 = mulHdagLeft(mulHLeft(src));
@@ -78,6 +87,21 @@ int main(int argc, char** argv){
     assert(diff3 < 1e-8);
     assert(diff4 < 1e-8);
   }
+  //Test src*H has X-conjugate columns
+  {
+    std::cout << "Test src*H has X-conjugate columns:" << std::endl;
+    LatticeSCFmatrixD r = mulHRight(src);
+    typedef columnOps<FermionFieldD> cop;
+    for(int c=0;c<24;c++){
+      FermionFieldD col = cop::extractColumn(r, c);
+      FermionField1fD col_0 = PeekIndex<GparityFlavourIndex>(col,0);
+      FermionField1fD col_1 = PeekIndex<GparityFlavourIndex>(col,1);
+      FermionField1fD tmp = col_1 + Xmatrix()*conjugate(col_0);
+      std::cout << c << " (expect 0): " << norm2(tmp) << std::endl;
+      assert(norm2(tmp) < 1e-10);
+    }
+  }
+
   MixedCGargs cg_args;
 
   LatticeSCFmatrixD sol_GP(GridsD.UGrid), midsol_GP(GridsD.UGrid);

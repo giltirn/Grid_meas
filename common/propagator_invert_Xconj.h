@@ -93,6 +93,9 @@ namespace GridMeas{
   
   //Invert using the X-conjugate action
   //NOTE: the source *must* have flavor structure  
+  //|  A       B   |
+  //| XB*X   -XA*X |
+  //which includes
   // | phi   0   |
   // |  0   phi* |  
   //where phi is a spin-color matrix that commutes with X=C g5  
@@ -102,27 +105,17 @@ namespace GridMeas{
 			       const MixedCGargs &args,
 			       bool do_midprop,
 			       std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
-    //Check the source has the right structure
-    {
-      auto msrc_00 = PeekIndex<GparityFlavourIndex>(msrc,0,0);
-      auto msrc_11 = PeekIndex<GparityFlavourIndex>(msrc,1,1);
-      decltype(msrc_00) diff = msrc_00 - conjugate(msrc_11);
-      assert(norm2(diff) < 1e-12);
-      auto msrc_01 = PeekIndex<GparityFlavourIndex>(msrc,0,1);
-      auto msrc_10 = PeekIndex<GparityFlavourIndex>(msrc,1,0);   
-      assert(norm2(msrc_01) < 1e-12);
-      assert(norm2(msrc_10) < 1e-12);
-
-      decltype(msrc_00) tmp = Xmatrix()*msrc_00 - msrc_00*Xmatrix();
-      assert(norm2(tmp) < 1e-12);
-    }      
-
     LatticeSCFmatrixD src_rotated = mulHRight(msrc); //the columns of this are X-conjugate
-    LatticePropagatorD src_fcol(msrc.Grid());
+    LatticePropagatorD src_fcol(msrc.Grid()), tmp(msrc.Grid());
     std::vector<LatticePropagatorD> prop_fcol(2, msrc.Grid()), midprop_fcol(2, msrc.Grid());
 
     for(int fcol=0;fcol<Ngp;fcol++){
-      src_fcol = PeekIndex<GparityFlavourIndex>(src_rotated,0,fcol); //only need upper flavor component as X-conjugate
+      src_fcol = PeekIndex<GparityFlavourIndex>(src_rotated,0,fcol); //only need upper flavor component as X-conjugate      
+      {
+	//Check the column is actually X-conjugate!
+	tmp = PeekIndex<GparityFlavourIndex>(src_rotated,1,fcol) + Xmatrix()*conjugate(src_fcol);
+	assert(norm2(tmp) < 1e-12);
+      }
       mixedPrecInvertGen(prop_fcol[fcol], midprop_fcol[fcol], src_fcol, xconj_action_d, xconj_action_f, args, do_midprop, evals, evecs);
     }    
 
