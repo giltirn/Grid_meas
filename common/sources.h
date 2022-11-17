@@ -91,7 +91,14 @@ namespace GridMeas{
     return out;
   }
 
-
-
-
+  //\eta(x,tau) = \delta_{tau,t} [ P_p e^{-i\vec p\cdot\vec x} + (P_p)^*  e^{i\vec p\cdot\vec x} ]
+  //where P_p is the projector suitable for a \bar\psi field with momentum p
+  LatticeSCFmatrixD gparityCosineWallSource(const std::vector<int> &p, const int t, GridBase* UGrid){
+    GparityFlavour P_p(getProjector(p, true));
+    
+    LatticeSCFmatrixD mom_wall = momentumWallSource(getPhysicalMomentum(p),t,UGrid);
+    LatticeSCFmatrixD out = mom_wall * P_p;
+    out = out + conjugate(out);
+    return out;
+  }
 };

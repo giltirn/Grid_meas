@@ -64,10 +64,14 @@ int main(int argc, char** argv){
   Grid_init(&argc, &argv);
 
   bool coswall = false;
+  bool gpcoswall = false;
   for(int i=1;i<argc;i++){
     std::string sarg(argv[i]);
     if(sarg == "--coswall") coswall = true;
+    else if(sarg == "--gpcoswall") gpcoswall = true;    
   }
+  if(coswall && gpcoswall){ std::cout << "Must choose coswall or gpcoswall, not both!" << std::endl; return 1; }
+
 
   int Ls = 12;
   Coordinate latt = GridDefaultLatt();
@@ -108,7 +112,11 @@ int main(int argc, char** argv){
   int t0 = 0;
   MixedCGargs cg_args;
 
-  LatticeSCFmatrixD eta = coswall ? cosineWallSource(p1_phys, t0, GridsD.UGrid) : momentumWallSource(p1_phys, t0, GridsD.UGrid); 
+  LatticeSCFmatrixD eta(GridsD.UGrid);
+  if(coswall) eta = cosineWallSource(p1_phys, t0, GridsD.UGrid);
+  else if(gpcoswall) eta = gparityCosineWallSource(p1, t0, GridsD.UGrid);
+  else eta = momentumWallSource(p1_phys, t0, GridsD.UGrid);
+
   LatticeSCFmatrixD prop = mixedPrecInvert(eta, *actions.action_d, *actions.action_f, cg_args);
 
   std::vector<RealD> pion_rightproj_rightmom =  momWallSourcePionCorrelator(p1,p1,t0,prop,prop);
@@ -117,6 +125,7 @@ int main(int argc, char** argv){
   std::vector<RealD> pion_rightproj_wrongmom =  momWallSourcePionCorrelatorOppProj(mp1,mp1,t0,prop,prop);
 
   if(coswall) std::cout << "For cosine sources both +/-p sink momenta are valid, but if we use the wrong projector we should get a smaller projection" << std::endl;
+  else if(gpcoswall) std::cout << "For G-parity cosine sources the right-mom/right-proj and wrong-mom/wrong-proj results will be identical, and the other combinations zero" << std::endl;
   else std::cout << "The right projector will project only onto the right momentum +p, whereas the wrong projector will project onto +/-p" << std::endl;
 
   for(int t=0;t<latt[3];t++){

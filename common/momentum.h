@@ -61,9 +61,13 @@ namespace GridMeas{
 
   //Get the projector 1/2(1\pm\sigma_2) appropriate for a given quark momentum
   //p should be in units of pi/2L
-  GparityFlavour::Algebra getProjector(const std::vector<int> &p){
+  //if bar == true it is the (right-)projector for \bar\psi    else it is the (left-)projector for \psi
+  GparityFlavour::Algebra getProjector(const std::vector<int> &p, bool bar = false){
     //psi_+  :   p = (..., -7, -3, 1, 5, 9, ...) pi/2L
     //psi_-  :   p = (..., -9, -5, -1, 3, 7, ...) pi/2L
+
+    //\bar\psi_-  :   p = (..., -7, -3, 1, 5, 9, ...) pi/2L
+    //\bar\psi_+  :   p = (..., -9, -5, -1, 3, 7, ...) pi/2L
 
     //are either described as (1+4n) or -(1+4n) for integer n
     std::vector<int> gpdirs = ConjugateGimplD::getDirections();
@@ -89,8 +93,12 @@ namespace GridMeas{
       }
     }
     assert(pm != -99);
-  
-    return pm == 1 ? GparityFlavour::Algebra::ProjPlus : GparityFlavour::Algebra::ProjMinus;
+
+    if(!bar){
+      return pm == 1 ? GparityFlavour::Algebra::ProjPlus : GparityFlavour::Algebra::ProjMinus;
+    }else{
+      return pm == 1 ? GparityFlavour::Algebra::ProjMinus : GparityFlavour::Algebra::ProjPlus;
+    }
   }
 
 
@@ -100,6 +108,16 @@ namespace GridMeas{
       if(p[i] < 0) ss << "_" << (-p[i]);
       else ss << p[i];
     }
+    return ss.str();
+  }
+  std::string momstr_human(const std::vector<int> &p){
+    std::stringstream ss;
+    ss << "(";
+    for(int i=0;i<3;i++){
+      if(i>0) ss << ",";
+      ss << p[i];
+    }
+    ss << ")";
     return ss.str();
   }
 

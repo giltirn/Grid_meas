@@ -1,0 +1,108 @@
+#include<common/propagator_invert_Xconj.h>
+#include<common/utils.h>
+#include<common/action.h>
+#include<common/sources.h>
+
+using namespace Grid;
+using namespace GridMeas;
+
+  
+  
+
+int main(int argc, char** argv){
+  Grid_init(&argc, &argv);
+
+  int Ls = 8;
+  Coordinate latt = GridDefaultLatt();
+  int Lt = latt[3];
+  size_t V4d = latt[0]*latt[1]*latt[2]*latt[3];
+  size_t V3d = latt[0]*latt[1]*latt[2];
+
+  Grids GridsD = makeDoublePrecGrids(Ls, latt);
+  Grids GridsF = makeSinglePrecGrids(Ls, latt);
+
+  std::vector<int> seeds4({1, 2, 3, 4});
+  GridParallelRNG pRNG(GridsD.UGrid); //4D!
+  pRNG.SeedFixedIntegers(seeds4);
+
+  GridParallelRNG pRNG5(GridsD.FGrid);  
+  pRNG5.SeedFixedIntegers(seeds4);
+
+  GridSerialRNG sRNG;  
+  sRNG.SeedFixedIntegers(seeds4); 
+
+  LatticeGaugeFieldD Ud(GridsD.UGrid);
+  LatticeGaugeFieldF Uf(GridsF.UGrid);
+  SU<Nc>::HotConfiguration(pRNG, Ud);
+  precisionChange(Uf,Ud);
+  
+  std::vector<int> dirs4({1,1,1,0});
+  ConjugateGimplD::setDirections(dirs4); //gauge BC
+
+  GparityWilsonImplD::ImplParams Params;
+  Params.twists = Coordinate(std::vector<int>({1,1,1,1})); //APBC in t direction
+
+  Actions actions(ActionType::Mobius, Params, 0.01, 2.0, Ud, GridsD, Uf, GridsF);
+  
+  std::vector<int> p({1,1,1});
+  std::vector<double> p_phys = getPhysicalMomentum(p);
+
+  int t0=0;
+  MixedCGargs cg_args;
+
+  //Repeat test for the G-parity cosine source
+  std::cout << "Checking G-parity cosine source" << std::endl;
+
+  //Note 1,1,1 is an allowed momentum of \bar\psi_- (projector P_-)
+  LatticeSCFmatrixD mom_wall = momentumWallSource(p_phys,t0,GridsD.UGrid);
+  LatticeSCFmatrixD src = gparityCosineWallSource(p,t0,GridsD.UGrid);
+
+  //Check the projection
+  {
+    LatticeSCFmatrixD proj = src * GparityFlavour(GparityFlavour::Algebra::ProjMinus);
+    LatticeSCFmatrixD proj_expect = mom_wall * GparityFlavour(GparityFlavour::Algebra::ProjMinus);
+    LatticeSCFmatrixD tmp = proj-proj_expect;
+    std::cout << "Check eta P_- = momwall P_-  (expect 0): " << norm2(tmp) <<  std::endl;
+    assert(norm2(tmp) < 1e-10);
+  }
+
+  //Check rotation by H results in X-conjugate field
+  {
+    std::cout << "Test src*H has X-conjugate columns:" << std::endl;
+    LatticeSCFmatrixD r = mulHRight(src);
+    typedef columnOps<FermionFieldD> cop;
+    for(int c=0;c<24;c++){
+      FermionFieldD col = cop::extractColumn(r, c);
+      FermionField1fD col_0 = PeekIndex<GparityFlavourIndex>(col,0);
+      FermionField1fD col_1 = PeekIndex<GparityFlavourIndex>(col,1);
+      FermionField1fD tmp = col_1 + Xmatrix()*conjugate(col_0);
+      std::cout << c << " (expect 0): " << norm2(tmp) << std::endl;
+      assert(norm2(tmp) < 1e-10);
+    }
+  }
+
+  //Show that inverting with the X-conj action and the G-parity cosine source and projecting after is the same as inverting with a mom-wall src using the regular
+  //G-parity action then projecting after.
+  LatticeSCFmatrixD sol_Xconj(GridsD.UGrid), midsol_Xconj(GridsD.UGrid);
+  mixedPrecInvertWithMidPropXconj(sol_Xconj, midsol_Xconj, src, *actions.xconj_action_d, *actions.xconj_action_f, cg_args);
+
+  LatticeSCFmatrixD sol_GP(GridsD.UGrid), midsol_GP(GridsD.UGrid);
+  mixedPrecInvertWithMidProp(sol_GP, midsol_GP, mom_wall, *actions.action_d, *actions.action_f, cg_args);
+
+  sol_GP = sol_GP * GparityFlavour(GparityFlavour::Algebra::ProjMinus);
+  midsol_GP = midsol_GP * GparityFlavour(GparityFlavour::Algebra::ProjMinus);
+
+  sol_Xconj = sol_Xconj * GparityFlavour(GparityFlavour::Algebra::ProjMinus);
+  midsol_Xconj = midsol_Xconj * GparityFlavour(GparityFlavour::Algebra::ProjMinus);
+
+  LatticeSCFmatrixD diff = sol_Xconj - sol_GP;
+  std::cout << "Prop: Norm of difference (expect 0): " << norm2(diff) << std::endl;
+  assert(norm2(diff) < 1e-8);
+  diff = midsol_Xconj - midsol_GP;
+  std::cout << "Midprop: Norm of difference (expect 0): " << norm2(diff) << std::endl;
+  assert(norm2(diff) < 1e-8);
+
+  std::cout << GridLogMessage << " Done" << std::endl;
+  Grid_finalize();
+  return 0;
+}

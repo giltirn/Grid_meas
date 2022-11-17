@@ -58,6 +58,10 @@ test_propagator_invert_cosinesrc_Xconj: test_propagator_invert_cosinesrc_Xconj.c
 	$(CXX) test_propagator_invert_cosinesrc_Xconj.cc -c -o test_propagator_invert_cosinesrc_Xconj.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_propagator_invert_cosinesrc_Xconj.o -o test_propagator_invert_cosinesrc_Xconj $(CXXFLAGS) $(LDFLAGS) $(LIBS)
 
+test_propagator_invert_gparitycosinesrc_Xconj: test_propagator_invert_gparitycosinesrc_Xconj.cc
+	$(CXX) test_propagator_invert_gparitycosinesrc_Xconj.cc -c -o test_propagator_invert_gparitycosinesrc_Xconj.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_propagator_invert_gparitycosinesrc_Xconj.o -o test_propagator_invert_gparitycosinesrc_Xconj $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
 test_stochastic_a2a: test_stochastic_a2a.cc
 	$(CXX) test_stochastic_a2a.cc -c -o test_stochastic_a2a.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_stochastic_a2a.o -o test_stochastic_a2a $(CXXFLAGS) $(LDFLAGS) $(LIBS)
@@ -77,3 +81,7 @@ test_mom_projection: test_mom_projection.cc
 test_Xconj_prec: test_Xconj_prec.cc
 	$(CXX) test_Xconj_prec.cc -c -o test_Xconj_prec.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_Xconj_prec.o -o test_Xconj_prec $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
+test_gpcosinewall_2ptmeas: test_gpcosinewall_2ptmeas.cc
+	$(CXX) test_gpcosinewall_2ptmeas.cc -c -o test_gpcosinewall_2ptmeas.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_gpcosinewall_2ptmeas.o -o test_gpcosinewall_2ptmeas $(CXXFLAGS) $(LDFLAGS) $(LIBS)
