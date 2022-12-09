@@ -215,6 +215,17 @@ inline void addResult(std::vector<RealD> &into, const std::vector<RealD> &from, 
     into[t] += from[t] / RealD(nsrc);
 }
 
+inline void addResult(std::vector<RealD> &into_avg,  std::vector<std::vector<RealD> > &into_sep, const std::vector<RealD> &from, const int nsrc){
+  for(int t=0;t<into_avg.size();t++) //average over sources
+    into_avg[t] += from[t] / RealD(nsrc);
+
+  into_sep.push_back(from);
+}
+
+
+
+
+
 template<typename LanczosAction>
 void run(const MeasArgs &args, const Opts &opts){
   printMem("Program body start");
@@ -361,97 +372,54 @@ void run(const MeasArgs &args, const Opts &opts){
     printMem("Post strange evec generation");
     
     /////////////////////////////////// Trajectory loop //////////////////////////////////////////
-    std::vector<RealD> Ct_pion_momwall(Lt, 0);
-    std::vector<RealD> Ct_j5q_momwall(Lt, 0);
-    std::vector<RealD> Ct_kaon_momwall(Lt, 0);
-    std::vector<RealD> Ct_ps_singlet_momwall(Lt, 0);
-    std::vector<RealD> Ct_j5q_kaon_momwall(Lt, 0);
-
-    std::vector<RealD> Ct_pion_coswall(Lt, 0);
-    std::vector<RealD> Ct_j5q_coswall(Lt, 0);
-    std::vector<RealD> Ct_kaon_coswall(Lt, 0);
-    std::vector<RealD> Ct_ps_singlet_coswall(Lt, 0);
-    std::vector<RealD> Ct_j5q_kaon_coswall(Lt, 0);
+    std::vector<RealD> Ct_pion(Lt, 0), Ct_j5q(Lt, 0), Ct_kaon(Lt, 0), Ct_ps_singlet(Lt, 0), Ct_j5q_kaon(Lt, 0);
+    std::vector<std::vector<RealD> > Ct_pion_sep, Ct_j5q_sep, Ct_kaon_sep, Ct_ps_singlet_sep, Ct_j5q_kaon_sep;
 
     for(int s=0;s<args.nsrc;s++){ 
       int t0 = src_t[s];
       std::cout << GridLogMessage << "Starting calculation with source timeslice t0=" << t0 << std::endl;
 
-      {
-	//Coulomb gauge fixed wall momentum sources (must be inverted with regular G-parity Dirac op)
-	LatticeSCFmatrixD src_p1 = momentumWallSource(p1_phys, t0, GridsD.UGrid);
-	LatticeSCFmatrixD Rp1(GridsD.UGrid), Rp1_mid(GridsD.UGrid);
-	std::cout << GridLogMessage << "Starting light quark inverse" << std::endl;
-	if(opts.use_split_grid)
-	  eval.splitGridMixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.action_d, *actions_sub.light.action_d, 
-						   *actions_sub.light.action_f, args.cg_args);
-	else
-	  eval.mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.action_d, *actions.light.action_f, args.cg_args);
+      //Coulomb gauge fixed Gparity cosine wall momentum sources, use X-conjugate Dirac operator
+      LatticeSCFmatrixD src_p1 = gparityCosineWallSource(p1, t0, GridsD.UGrid);
+      LatticeSCFmatrixD Rp1(GridsD.UGrid), Rp1_mid(GridsD.UGrid);
+      std::cout << GridLogMessage << "Starting light quark inverse" << std::endl;
+      if(opts.use_split_grid)
+	eval.splitGridMixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.xconj_action_d, *actions_sub.light.xconj_action_d, 
+						 *actions_sub.light.xconj_action_f, args.cg_args);
+      else
+	eval.mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.xconj_action_d, *actions.light.xconj_action_f, args.cg_args);
       
-	const LatticeSCFmatrixD &Rp2 = Rp1;
-	const LatticeSCFmatrixD &Rp2_mid = Rp1_mid;
+      const LatticeSCFmatrixD &Rp2 = Rp1;
+      const LatticeSCFmatrixD &Rp2_mid = Rp1_mid;
 
-	//Do strange quark also
-	std::cout << GridLogMessage << "Starting strange quark inverse" << std::endl;
-	LatticeSCFmatrixD Rp1_s(GridsD.UGrid), Rp1_s_mid(GridsD.UGrid);
-	if(opts.use_split_grid)
-	  eval_s.splitGridMixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.action_d, *actions_sub.strange.action_d, 
-						     *actions_sub.strange.action_f, args.cg_args);
-	else
-	  eval_s.mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.action_d, *actions.strange.action_f, args.cg_args);      
+      //Do strange quark also
+      std::cout << GridLogMessage << "Starting strange quark inverse" << std::endl;
+      LatticeSCFmatrixD Rp1_s(GridsD.UGrid), Rp1_s_mid(GridsD.UGrid);
+      if(opts.use_split_grid)
+	eval_s.splitGridMixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.xconj_action_d, *actions_sub.strange.xconj_action_d, 
+						   *actions_sub.strange.xconj_action_f, args.cg_args);
+      else
+	eval_s.mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.xconj_action_d, *actions.strange.xconj_action_f, args.cg_args);      
 
-	addResult(Ct_pion_momwall, momWallSourcePionCorrelator(p1, p2, t0, Rp1, Rp2), args.nsrc);
-	addResult(Ct_j5q_momwall, momWallSourcePionCorrelator(p1, p2, t0, Rp1_mid, Rp2_mid), args.nsrc);
-	addResult(Ct_ps_singlet_momwall, momWallSourcePSsingletCorrelator(p1, t0, Rp1), args.nsrc);
-	addResult(Ct_kaon_momwall, momWallSourceKaonCorrelator(p1, t0, Rp1, Rp1_s), args.nsrc);
-	addResult(Ct_j5q_kaon_momwall, momWallSourceKaonCorrelator(p1, t0, Rp1_mid, Rp1_s_mid), args.nsrc);
-      }
-
-
-      {
-	//Coulomb gauge fixed cosine wall momentum sources, use X-conjugate Dirac operator
-	LatticeSCFmatrixD src_p1 = cosineWallSource(p1_phys, t0, GridsD.UGrid);
-	LatticeSCFmatrixD Rp1(GridsD.UGrid), Rp1_mid(GridsD.UGrid);
-	std::cout << GridLogMessage << "Starting light quark inverse" << std::endl;
-	if(opts.use_split_grid)
-	  eval.splitGridMixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.xconj_action_d, *actions_sub.light.xconj_action_d, 
-						   *actions_sub.light.xconj_action_f, args.cg_args);
-	else
-	  eval.mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.xconj_action_d, *actions.light.xconj_action_f, args.cg_args);
-      
-	const LatticeSCFmatrixD &Rp2 = Rp1;
-	const LatticeSCFmatrixD &Rp2_mid = Rp1_mid;
-
-	//Do strange quark also
-	std::cout << GridLogMessage << "Starting strange quark inverse" << std::endl;
-	LatticeSCFmatrixD Rp1_s(GridsD.UGrid), Rp1_s_mid(GridsD.UGrid);
-	if(opts.use_split_grid)
-	  eval_s.splitGridMixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.xconj_action_d, *actions_sub.strange.xconj_action_d, 
-						     *actions_sub.strange.xconj_action_f, args.cg_args);
-	else
-	  eval_s.mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.xconj_action_d, *actions.strange.xconj_action_f, args.cg_args);      
-
-	addResult(Ct_pion_coswall, momWallSourcePionCorrelator(p1, p2, t0, Rp1, Rp2), args.nsrc);
-	addResult(Ct_j5q_coswall, momWallSourcePionCorrelator(p1, p2, t0, Rp1_mid, Rp2_mid), args.nsrc);
-	addResult(Ct_ps_singlet_coswall, momWallSourcePSsingletCorrelator(p1, t0, Rp1), args.nsrc);
-	addResult(Ct_kaon_coswall, momWallSourceKaonCorrelator(p1, t0, Rp1, Rp1_s), args.nsrc);
-	addResult(Ct_j5q_kaon_coswall, momWallSourceKaonCorrelator(p1, t0, Rp1_mid, Rp1_s_mid), args.nsrc);
-      }
-
+      addResult(Ct_pion, Ct_pion_sep, momWallSourcePionCorrelator(p1, p2, t0, Rp1, Rp2), args.nsrc);
+      addResult(Ct_j5q, Ct_j5q_sep, momWallSourcePionCorrelator(p1, p2, t0, Rp1_mid, Rp2_mid), args.nsrc);
+      addResult(Ct_ps_singlet, Ct_ps_singlet_sep, momWallSourcePSsingletCorrelator(p1, t0, Rp1), args.nsrc);
+      addResult(Ct_kaon, Ct_kaon_sep, momWallSourceKaonCorrelator(p1, t0, Rp1, Rp1_s), args.nsrc);
+      addResult(Ct_j5q_kaon, Ct_j5q_kaon_sep, momWallSourceKaonCorrelator(p1, t0, Rp1_mid, Rp1_s_mid), args.nsrc);
     }
 
     if(args.nsrc != 0){
-      asciiWriteArray(Ct_pion_momwall, "pion_momwall_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
-      asciiWriteArray(Ct_j5q_momwall, "j5q_momwall_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
-      asciiWriteArray(Ct_ps_singlet_momwall, "ps_singlet_momwall_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
-      asciiWriteArray(Ct_kaon_momwall, "kaon_momwall_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
-      asciiWriteArray(Ct_j5q_kaon_momwall, "j5q_kaon_momwall_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+      asciiWriteArray(Ct_pion, "pion_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+      asciiWriteArray(Ct_j5q, "j5q_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+      asciiWriteArray(Ct_ps_singlet, "ps_singlet_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+      asciiWriteArray(Ct_kaon, "kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+      asciiWriteArray(Ct_j5q_kaon, "j5q_kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
 
-      asciiWriteArray(Ct_pion_coswall, "pion_coswall_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
-      asciiWriteArray(Ct_j5q_coswall, "j5q_coswall_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
-      asciiWriteArray(Ct_ps_singlet_coswall, "ps_singlet_coswall_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
-      asciiWriteArray(Ct_kaon_coswall, "kaon_coswall_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
-      asciiWriteArray(Ct_j5q_kaon_coswall, "j5q_kaon_coswall_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+      asciiWriteArray(Ct_pion_sep, "pion_sep_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+      asciiWriteArray(Ct_j5q_sep, "j5q_sep_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+      asciiWriteArray(Ct_ps_singlet_sep, "ps_singlet_sep_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+      asciiWriteArray(Ct_kaon_sep, "kaon_sep_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+      asciiWriteArray(Ct_j5q_kaon_sep, "j5q_kaon_sep_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
     }
   }
 }
