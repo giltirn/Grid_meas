@@ -16,6 +16,7 @@
 #include "common/field_array_io.h" 
 #include "common/read_config.h"
 #include "common/lanczos.h"
+#include "common/evec_container.h"
 #include "common/gauge_fix.h"
 #include "common/memory.h"
 #include "common/pion_2pt.h"

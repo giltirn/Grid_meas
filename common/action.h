@@ -205,4 +205,27 @@ namespace GridMeas{
     return Params;
   }
 
+  //Container for light and strange actions
+  struct ActionsLightStrange{
+    Actions light;
+    Actions strange;
+
+    ActionsLightStrange(){}
+  
+    ActionsLightStrange(ActionType action,
+			double light_mass, double strange_mass,
+			const GparityWilsonImplD::ImplParams &Params, double mobius_scale,
+			LatticeGaugeFieldD &U_d, Grids &GridsD,
+			LatticeGaugeFieldF &U_f, Grids &GridsF):
+      light(action,Params,light_mass,mobius_scale,U_d,GridsD,U_f,GridsF),
+      strange(action,Params,strange_mass,mobius_scale,U_d,GridsD,U_f,GridsF)
+    {}
+
+    void ImportGauge(LatticeGaugeFieldD &U_d,LatticeGaugeFieldF &U_f){
+      light.ImportGauge(U_d,U_f);
+      strange.ImportGauge(U_d,U_f);
+    }
+
+  };
+
 }
