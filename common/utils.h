@@ -84,14 +84,14 @@ namespace GridMeas{
     return X;
   }
 
-  inline void addResult(std::vector<RealD> &into, const std::vector<RealD> &from, const int nsrc){
+  inline void addResult(std::vector<RealD> &into, const std::vector<RealD> &from, const RealD nsrc){
     for(int t=0;t<into.size();t++) //average over sources
-      into[t] += from[t] / RealD(nsrc);
+      into[t] += from[t] / nsrc;
   }
 
-  inline void addResult(std::vector<RealD> &into_avg,  std::vector<std::vector<RealD> > &into_sep, const std::vector<RealD> &from, const int nsrc){
+  inline void addResult(std::vector<RealD> &into_avg,  std::vector<std::vector<RealD> > &into_sep, const std::vector<RealD> &from, const RealD nsrc){
     for(int t=0;t<into_avg.size();t++) //average over sources
-      into_avg[t] += from[t] / RealD(nsrc);
+      into_avg[t] += from[t] / nsrc;
 
     into_sep.push_back(from);
   }
