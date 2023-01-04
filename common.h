@@ -25,4 +25,4 @@
 #include "common/wilson_flow.h"
 #include "common/topological_charge.h"
 #include "common/chiral_condensate.h"
-
+#include "common/gauge_obs.h"

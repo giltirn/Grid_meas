@@ -13,8 +13,7 @@ struct MeasArgs: Serializable {
 				  std::vector<Integer>, GparityDirs,
 				  std::string, cfg_stub,
 				  std::string, rng_stub,
-				  RealD, prop_invert_tol,
-				  RealD, prop_invert_mixcg_innertol,
+				  MixedCGargs, cg_args,
 				  RealD, wflow_init_epsilon,
 				  RealD, wflow_maxTau,
 				  RealD, wflow_tolerance,
@@ -25,8 +24,6 @@ struct MeasArgs: Serializable {
     mass = 0.01;
     mobius_scale = 2.;
     Ls = 12;
-    prop_invert_tol = 1e-8;
-    prop_invert_mixcg_innertol = 1e-5;
     GparityDirs = {1,0,0};
     cfg_stub = "ckpoint_lat";
     rng_stub = "ckpoint_rng";
@@ -133,14 +130,26 @@ int main(int argc, char** argv){
     actions.ImportGauge(U_d,U_f);
 
     //Timeslice plaquette
-    auto tslice_plaq = WilsonLoops<ConjugateGimplD>::timesliceAvgSpatialPlaquette(U_d);
-    asciiWriteArray(tslice_plaq, "timeslice_plaq", traj);   
-    
+    {
+      auto tslice_plaq = WilsonLoops<ConjugateGimplD>::timesliceAvgSpatialPlaquette(U_d);
+      asciiWriteArray(tslice_plaq, "timeslice_plaq", traj);   
+    }    
+    //Oriented plaquette
+    {
+      RealD plaq;
+      plaq = avgOrientedPlaquette(0,1,U_d); asciiWriteValue(plaq, "plaq_XY", traj);
+      plaq = avgOrientedPlaquette(0,2,U_d); asciiWriteValue(plaq, "plaq_XZ", traj);
+      plaq = avgOrientedPlaquette(1,2,U_d); asciiWriteValue(plaq, "plaq_YZ", traj);
+      plaq = avgOrientedPlaquette(0,3,U_d); asciiWriteValue(plaq, "plaq_XT", traj);
+      plaq = avgOrientedPlaquette(1,3,U_d); asciiWriteValue(plaq, "plaq_YT", traj);
+      plaq = avgOrientedPlaquette(2,3,U_d); asciiWriteValue(plaq, "plaq_ZT", traj);
+    }
+
     //Chiral condensate
     {
       FermionFieldD rand_vol_src = randomGaussianVolumeSource(pRNG, gridsD.UGrid);
       FermionFieldD rand_vol_sol(gridsD.UGrid);
-      mixedPrecInvertFieldXconj(rand_vol_sol, rand_vol_src, *actions.xconj_action_d, *actions.xconj_action_f, args.prop_invert_tol, args.prop_invert_mixcg_innertol);
+      mixedPrecInvertFieldXconj(rand_vol_sol, rand_vol_src, *actions.xconj_action_d, *actions.xconj_action_f, args.cg_args);
       RealD cc = chiralCondensate(rand_vol_sol, rand_vol_src);
       asciiWriteValue(cc, "chiral_condensate", traj);
     }
