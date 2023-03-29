@@ -46,7 +46,9 @@ namespace GridMeas{
     static ComplexD h1pi(0.5,0.5);
     static ComplexD h1mi(0.5,-0.5);
 
-    return mulPplusLeft(T(h1pi*in + h1mi*(sigma3*in))) + mulPminusLeft(T(h1mi*(sigma1*in) - h1mi*(sigma2*in)));
+    T out = mulPplusLeft(T(h1pi*in + h1mi*(sigma3*in))) + mulPminusLeft(T(h1mi*(sigma1*in) - h1mi*(sigma2*in)));
+    resetDeviceStackMemory();
+    return out;
   }
   template<typename T>
   T mulHdagLeft(const T &in){
@@ -56,7 +58,9 @@ namespace GridMeas{
     static ComplexD h1pi(0.5,0.5);
     static ComplexD h1mi(0.5,-0.5);
 
-    return mulPplusLeft(T(h1mi*in + h1pi*(sigma3*in))) + mulPminusLeft(T(h1pi*(sigma1*in) - h1pi*(sigma2*in)));
+    T out = mulPplusLeft(T(h1mi*in + h1pi*(sigma3*in))) + mulPminusLeft(T(h1pi*(sigma1*in) - h1pi*(sigma2*in)));
+    resetDeviceStackMemory();
+    return out;
   }
   template<typename T>
   T mulHRight(const T &in){
@@ -66,7 +70,9 @@ namespace GridMeas{
     static ComplexD h1pi(0.5,0.5);
     static ComplexD h1mi(0.5,-0.5);
 
-    return mulPplusRight(T(h1pi*in + h1mi*in*sigma3)) + mulPminusRight(T(h1mi*in*sigma1 - h1mi*in*sigma2));
+    T out = mulPplusRight(T(h1pi*in + h1mi*in*sigma3)) + mulPminusRight(T(h1mi*in*sigma1 - h1mi*in*sigma2));
+    resetDeviceStackMemory();
+    return out;
   }
   template<typename T>
   inline T mulHdagRight(const T &in){
@@ -76,7 +82,9 @@ namespace GridMeas{
     static ComplexD h1pi(0.5,0.5);
     static ComplexD h1mi(0.5,-0.5);
 
-    return mulPplusRight(T(h1mi*in + h1pi*in*sigma3)) + mulPminusRight(T(h1pi*in*sigma1 - h1pi*in*sigma2));
+    T out = mulPplusRight(T(h1mi*in + h1pi*in*sigma3)) + mulPminusRight(T(h1pi*in*sigma1 - h1pi*in*sigma2));
+    resetDeviceStackMemory();
+    return out;
   }
 
 
@@ -88,6 +96,7 @@ namespace GridMeas{
     static GparityFlavour sigma3 = GparityFlavour(GparityFlavour::Algebra::SigmaZ);
 
     T out = 0.5*(in + in*Xmatrix()) + 0.5*(in*sigma3 - (in*Xmatrix())*sigma3);
+    resetDeviceStackMemory();
     return out;
   }
   

@@ -123,18 +123,18 @@ void run(const MeasArgs &args, const Opts &opts){
   printMem("Post action creation");
   
   //Prepare split grid if in use
-  Grids *SubGridsD_p = nullptr, *SubGridsF_p = nullptr;
+  std::unique_ptr<Grids> SubGridsD_p, SubGridsF_p;
   ActionsLightStrange actions_sub;
-  LatticeGaugeFieldD *U_sub_d_p = nullptr;
-  LatticeGaugeFieldF *U_sub_f_p = nullptr;
+  std::unique_ptr<LatticeGaugeFieldD> U_sub_d_p;
+  std::unique_ptr<LatticeGaugeFieldF> U_sub_f_p = nullptr;
   if(opts.use_split_grid){
     printMem("Pre split Grid creation");
     Coordinate proc_sub(opts.split_grid_proc_layout);
-    SubGridsD_p = new Grids(makeSplitGrids(GridsD, proc_sub));
-    SubGridsF_p = new Grids(makeSplitGrids(GridsF, proc_sub));
+    SubGridsD_p.reset(new Grids(makeSplitGrids(GridsD, proc_sub)));
+    SubGridsF_p.reset(new Grids(makeSplitGrids(GridsF, proc_sub)));
     printMem("Post split Grid creation");
-    U_sub_d_p = new LatticeGaugeFieldD(SubGridsD_p->UGrid);
-    U_sub_f_p = new LatticeGaugeFieldF(SubGridsF_p->UGrid);
+    U_sub_d_p.reset(new LatticeGaugeFieldD(SubGridsD_p->UGrid));
+    U_sub_f_p.reset(new LatticeGaugeFieldF(SubGridsF_p->UGrid));
     printMem("Post split Grid gauge field creation");
     actions_sub = ActionsLightStrange(args.action, args.ml, args.ms, Params, args.mobius_scale, *U_sub_d_p, *SubGridsD_p, *U_sub_f_p, *SubGridsF_p);
     printMem("Post split-grid Grid/action creation");
@@ -165,7 +165,6 @@ void run(const MeasArgs &args, const Opts &opts){
     
     assert(args.nexact <= args.nsloppy);
   }
-
 
 
   printMem("Pre trajectory loop");
@@ -265,12 +264,18 @@ void run(const MeasArgs &args, const Opts &opts){
     for(int s=0;s<args.nsloppy;s++){ 
       int t0 = src_t[s];
       std::cout << GridLogMessage << "Starting calculation with source timeslice t0=" << t0 << std::endl;
-
+      printMem("Start of timeslice sloppy");
+      resetDeviceStackMemory();
+      printMem("Post stack memory reset");
+      
       //Coulomb gauge fixed Gparity cosine wall momentum sources, use X-conjugate Dirac operator
       LatticeSCFmatrixD src_p1 = gparityCosineWallSource(p1, t0, GridsD.UGrid);
 
+      printMem("Post create cosine wall source");
+      
       LatticeSCFmatrixD Rp1(GridsD.UGrid), Rp1_mid(GridsD.UGrid);
       std::cout << GridLogMessage << "Starting sloppy light quark inverse" << std::endl;
+      printMem("Pre sloppy light inverse");
       if(opts.use_split_grid)
 	eval.splitGridMixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.xconj_action_d, *actions_sub.light.xconj_action_d, 
 						 *actions_sub.light.xconj_action_f, args.cg_args_sloppy);
@@ -280,6 +285,8 @@ void run(const MeasArgs &args, const Opts &opts){
       const LatticeSCFmatrixD &Rp2 = Rp1;
       const LatticeSCFmatrixD &Rp2_mid = Rp1_mid;
 
+      printMem("Post sloppy light inverse");
+      
       //Do strange quark also
       std::cout << GridLogMessage << "Starting sloppy strange quark inverse" << std::endl;
       LatticeSCFmatrixD Rp1_s(GridsD.UGrid), Rp1_s_mid(GridsD.UGrid);
@@ -289,6 +296,8 @@ void run(const MeasArgs &args, const Opts &opts){
       else
 	eval_s.mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.xconj_action_d, *actions.strange.xconj_action_f, args.cg_args_sloppy);      
 
+      printMem("Post sloppy strange inverse");
+      
       std::vector<RealD> Ct_pion_sloppy = momWallSourcePionCorrelator(p1, p2, t0, Rp1, Rp2);
       std::vector<RealD> Ct_j5q_sloppy = momWallSourcePionCorrelator(p1, p2, t0, Rp1_mid, Rp2_mid);
       std::vector<RealD> Ct_ps_singlet_sloppy = momWallSourcePSsingletCorrelator(p1, t0, Rp1);
@@ -300,17 +309,23 @@ void run(const MeasArgs &args, const Opts &opts){
       addResult(Ct_ps_singlet, Ct_ps_singlet_sep, Ct_ps_singlet_sloppy, args.nsloppy);
       addResult(Ct_kaon, Ct_kaon_sep, Ct_kaon_sloppy, args.nsloppy);
       addResult(Ct_j5q_kaon, Ct_j5q_kaon_sep, Ct_j5q_kaon_sloppy, args.nsloppy);
-
+      
+      printMem("Post sloppy contractions");
+      
       auto eit = exact_src_t.find(t0);
       if(eit != exact_src_t.end()){
 	//Do exact solve
 	std::cout << GridLogMessage << "Starting exact light quark inverse" << std::endl;
+	printMem("Start of timeslice exact");
+	
 	if(opts.use_split_grid)
 	  eval.splitGridMixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.xconj_action_d, *actions_sub.light.xconj_action_d, 
 						   *actions_sub.light.xconj_action_f, args.cg_args_exact);
 	else
 	  eval.mixedPrecInvertWithMidProp(Rp1, Rp1_mid, src_p1, *actions.light.xconj_action_d, *actions.light.xconj_action_f, args.cg_args_exact);
 
+	printMem("Post exact light inverse");
+	
 	std::cout << GridLogMessage << "Starting exact strange quark inverse" << std::endl;
 	if(opts.use_split_grid)
 	  eval_s.splitGridMixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.xconj_action_d, *actions_sub.strange.xconj_action_d, 
@@ -318,6 +333,8 @@ void run(const MeasArgs &args, const Opts &opts){
 	else
 	  eval_s.mixedPrecInvertWithMidProp(Rp1_s, Rp1_s_mid, src_p1, *actions.strange.xconj_action_d, *actions.strange.xconj_action_f, args.cg_args_exact);      
 
+	printMem("Post exact strange inverse");
+	
 	std::vector<RealD> Ct_pion_corr = momWallSourcePionCorrelator(p1, p2, t0, Rp1, Rp2) - Ct_pion_sloppy;
 	std::vector<RealD> Ct_j5q_corr = momWallSourcePionCorrelator(p1, p2, t0, Rp1_mid, Rp2_mid) - Ct_j5q_sloppy;
 	std::vector<RealD> Ct_ps_singlet_corr = momWallSourcePSsingletCorrelator(p1, t0, Rp1) - Ct_ps_singlet_sloppy;
@@ -332,6 +349,8 @@ void run(const MeasArgs &args, const Opts &opts){
 	addResult(Ct_ps_singlet_correction, Ct_ps_singlet_sep, Ct_ps_singlet_corr, eweight);
 	addResult(Ct_kaon_correction, Ct_kaon_sep, Ct_kaon_corr, eweight);
 	addResult(Ct_j5q_kaon_correction, Ct_j5q_kaon_sep, Ct_j5q_kaon_corr, eweight);
+
+	printMem("Post exact contractions");
       }
       
       
@@ -439,7 +458,7 @@ int main(int argc, char** argv){
   }else{
     assert(0);
   }
-
+   
   std::cout << GridLogMessage << " Done" << std::endl;
   Grid_finalize();
   return 0;

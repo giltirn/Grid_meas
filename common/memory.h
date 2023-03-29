@@ -15,8 +15,8 @@ namespace GridMeas{
 
   
   //Print memory information
-  void printMem(const std::string &reason = ""){
-    MPI_Barrier(MPI_COMM_WORLD);
+  void printMem(const std::string &reason = "", bool barrier = true){
+    if(barrier) MPI_Barrier(MPI_COMM_WORLD);
     std::cout << GridLogMessage << "====================================" << std::endl;
     std::cout << "printMem called";
     if(reason.size()) std::cout << " with reason: " << reason;
@@ -60,6 +60,16 @@ namespace GridMeas{
     
     std::cout << GridLogMessage << "====================================" << std::endl;
     std::cout.flush();
-    MPI_Barrier(MPI_COMM_WORLD);
+    if(barrier) MPI_Barrier(MPI_COMM_WORLD);
   }
+
+  //On some devices, stack memory allocations on the device are not freed up as a performance optimization. However, for some kernels that use large amounts of stack memory, this can
+  //mean tens of GB that become unusable. This command will reset the cache memory back to the default
+  inline void resetDeviceStackMemory(){
+#ifdef GRID_CUDA
+    cudaDeviceSetLimit(cudaLimitStackSize, 0);
+#endif
+  }
+
+  
 }
