@@ -46,4 +46,24 @@ namespace GridMeas{
     sRNG.SeedFixedIntegers(seeds4); 
   }
 
+
+  void readConfiguration(LatticeGaugeFieldD &U,
+			 const std::string &filename){
+    typedef GaugeStatistics<ConjugateGimplD> GaugeStats;    
+    FieldMetaData header;
+    NerscIO::readConfiguration<GaugeStats>(U, header, filename);
+  }
+
+  //For the CPS configurations we have to manually seed the RNG and deal with an incorrect factor of 2 in the plaquette metadata
+  void readCPSconfiguration(LatticeGaugeFieldD &U,
+			    const std::string &filename){
+
+    NerscIO::exitOnReadPlaquetteMismatch() = false;
+    typedef GaugeStatistics<ConjugateGimplD> GaugeStats;
+    FieldMetaData header;
+    NerscIO::readConfiguration<GaugeStats>(U, header, filename);
+    NerscIO::exitOnReadPlaquetteMismatch() = true;
+  }
+
+
 };

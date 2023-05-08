@@ -35,6 +35,7 @@ namespace GridMeas{
     static void doit(innerProductImplementation<Field> *& inner, ImplicitlyRestartedLanczosTester<Field> *&tester, LinearFunction<Field> &HermOp){
       inner = new innerProductImplementation<Field>;
       tester = new ImplicitlyRestartedLanczosHermOpTester<Field>(HermOp, *inner);
+      std::cout << "Using regular Lanczos inner product" << std::endl;
     }
   };
   template<typename Field>
@@ -42,6 +43,7 @@ namespace GridMeas{
     static void doit(innerProductImplementation<Field> *& inner, ImplicitlyRestartedLanczosTester<Field> *&tester, LinearFunction<Field> &HermOp){
       inner = new innerProductImplementationXconjugate<Field>;
       tester = new ImplicitlyRestartedLanczosHermOpTester<Field>(HermOp, *inner);
+      std::cout << "Using X-conjugate Lanczos inner product" << std::endl;
     }
   };
    

@@ -2,17 +2,86 @@
 #include<common/utils.h>
 #include<common/action.h>
 #include<common/lanczos.h>
+#include<common/read_config.h>
 
 using namespace Grid;
 using namespace GridMeas;
 
+//Default tested for 8^4 volume
+struct MeasArgs: Serializable {
+  GRID_SERIALIZABLE_CLASS_MEMBERS(MeasArgs,
+				  ActionType, action,
+				  int, Ls,
+				  double, mobius_scale,
+				  std::vector<Integer>, GparityDirs,
+				  double, mass,
+				  LanczosParameters, lanc_args,
+				  );
+  MeasArgs() { 
+    action = ActionType::Mobius;
+    Ls = 8;
+    GparityDirs = {1,1,1};
+    mass = 0.01;
+    mobius_scale = 2.0;
+
+    LanczosParameters &params = lanc_args;
   
-  
+    int Nstop = 30;
+    int Nk = 30;
+    int Np = 5;
+    int ord = 80;
+    RealD lo = 1.5;
+    RealD hi = 88.0;
+    params.alpha = sqrt(hi);
+    params.beta = sqrt(lo);
+    params.n_stop = Nstop;
+    params.n_want = Nk;
+    params.n_use = Nk+Np;
+    params.ord = ord;
+    params.tolerance = 1e-8;
+  }
+};
+
+
 
 int main(int argc, char** argv){
   Grid_init(&argc, &argv);
+  assert(argc >= 2);
+  std::string arg_file = argv[1];
 
-  int Ls = 8;
+  MeasArgs args;
+  
+  if(fileExists(arg_file)){
+    std::cout << GridLogMessage << " Reading " << arg_file << std::endl;
+    Grid::XmlReader rd(arg_file);
+    read(rd, "Args", args);
+  }else if(!GlobalSharedMemory::WorldRank){
+    std::cout << GridLogMessage << " File " << arg_file << " does not exist" << std::endl;
+    std::cout << GridLogMessage << " Writing xml template to " << arg_file << ".templ" << std::endl;
+    {
+      Grid::XmlWriter wr(arg_file + ".templ");
+      write(wr, "Args", args);
+    }
+      
+    std::cout << GridLogMessage << " Done" << std::endl;
+    Grid_finalize();
+    return 0;
+  }
+
+  bool is_cps_cfg = false;
+  bool load_gauge = false;
+  std::string load_gauge_file;
+  for(int i=2;i<argc;i++){
+    std::string sargv(argv[i]);
+    if(sargv == "--cps_cfg"){
+      is_cps_cfg = true;
+    }else if(sargv == "--load_cfg"){
+      load_gauge = true;
+      load_gauge_file = argv[i+1];
+    }
+  }
+
+  int Ls = args.Ls;
   Coordinate latt = GridDefaultLatt();
   int Lt = latt[3];
   size_t V4d = latt[0]*latt[1]*latt[2]*latt[3];
@@ -36,43 +105,37 @@ int main(int argc, char** argv){
 
   LatticeGaugeFieldD Ud(GridsD.UGrid);
   LatticeGaugeFieldF Uf(GridsF.UGrid);
-  SU<Nc>::HotConfiguration(pRNG, Ud);
-  precisionChange(Uf,Ud);
-  
-  std::vector<int> dirs4({1,1,1,0});
+
+  std::vector<int> dirs4(4,0);
+  for(int i=0;i<3;i++) dirs4[i] = args.GparityDirs[i];
   ConjugateGimplD::setDirections(dirs4); //gauge BC
-
+  
   GparityWilsonImplD::ImplParams Params;
-  Params.twists = Coordinate(std::vector<int>({1,1,1,1})); //APBC in t direction
+  dirs4[3] = 1; //APBC in t direction
+  Params.twists = Coordinate(dirs4); 
 
-  Actions actions(ActionType::Mobius, Params, 0.01, 2.0, Ud, GridsD, Uf, GridsF);
-  
-  LanczosParameters params;
-  
-  int Nstop = 30;
-  int Nk = 30;
-  int Np = 5;
-  int ord = 80;
-  RealD lo = 1.5;
-  RealD hi = 88.0;
-  params.alpha = sqrt(hi);
-  params.beta = sqrt(lo);
-  params.n_stop = Nstop;
-  params.n_want = Nk;
-  params.n_use = Nk+Np;
-  params.ord = ord;
-  params.tolerance = 1e-8;
+  if(!load_gauge){
+    std::cout << "Using random gauge field" << std::endl;
+    SU<Nc>::HotConfiguration(pRNG, Ud);
+  }else{
+    is_cps_cfg ? 
+      readCPSconfiguration(Ud, load_gauge_file) :
+      readConfiguration(Ud, load_gauge_file);
+  }
+  precisionChange(Uf,Ud);
 
+  Actions actions(args.action, Params, args.mass, args.mobius_scale, Ud, GridsD, Uf, GridsF);
+  
   std::vector<RealD> eval_GP;
   std::vector<FermionFieldD> evec_GP;
 
-  computeEigenvalues(eval_GP, evec_GP, params, GridsD.FGrid, GridsD.FrbGrid, Ud, *actions.action_d, pRNG5);
+  computeEigenvalues(eval_GP, evec_GP, args.lanc_args, GridsD.FGrid, GridsD.FrbGrid, Ud, *actions.action_d, pRNG5);
 
 
   std::vector<RealD> eval_Xconj;
   std::vector<FermionField1fD> evec_Xconj;
 
-  computeEigenvalues(eval_Xconj, evec_Xconj, params, GridsD.FGrid, GridsD.FrbGrid, Ud, *actions.xconj_action_d, pRNG5);
+  computeEigenvalues(eval_Xconj, evec_Xconj, args.lanc_args, GridsD.FGrid, GridsD.FrbGrid, Ud, *actions.xconj_action_d, pRNG5);
 
   assert(eval_GP.size() == eval_Xconj.size());
 
