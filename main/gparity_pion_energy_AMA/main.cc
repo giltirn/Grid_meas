@@ -4,6 +4,12 @@
 using namespace GridMeas;
 using namespace Grid;
 
+void insertResult(std::vector<RealD> &into_avg, std::vector<std::vector<RealD> > &into_sep, const std::vector<RealD> &from, const RealD nsrc, const int t){
+  addResult(into_avg,from,nsrc);
+  into_sep[t] = from;
+}
+
+
 struct MeasArgs: Serializable {
   GRID_SERIALIZABLE_CLASS_MEMBERS(MeasArgs,
 				  ActionType, action,
@@ -257,9 +263,13 @@ void run(const MeasArgs &args, const Opts &opts){
     printMem("Post strange evec generation");
     
     /////////////////////////////////// Trajectory loop //////////////////////////////////////////
-    std::vector<RealD> Ct_pion(Lt, 0), Ct_j5q(Lt, 0), Ct_kaon(Lt, 0), Ct_ps_singlet(Lt, 0), Ct_j5q_kaon(Lt, 0);
-    std::vector<std::vector<RealD> > Ct_pion_sep, Ct_j5q_sep, Ct_kaon_sep, Ct_ps_singlet_sep, Ct_j5q_kaon_sep;
-    std::vector<RealD> Ct_pion_correction(Lt, 0), Ct_j5q_correction(Lt, 0), Ct_kaon_correction(Lt, 0), Ct_ps_singlet_correction(Lt, 0), Ct_j5q_kaon_correction(Lt, 0);
+    std::vector<RealD> init(Lt,0);
+
+    std::vector<RealD> Ct_pion(init), Ct_j5q(init), Ct_kaon(init), Ct_ps_singlet(init), Ct_j5q_kaon(init);
+    std::vector<std::vector<RealD> > Ct_pion_sep(Lt,init), Ct_j5q_sep(Lt,init), Ct_kaon_sep(Lt,init), Ct_ps_singlet_sep(Lt,init), Ct_j5q_kaon_sep(Lt,init);
+    std::vector<RealD> Ct_pion_correction(init), Ct_j5q_correction(init), Ct_kaon_correction(init), Ct_ps_singlet_correction(init), Ct_j5q_kaon_correction(init);
+    std::vector<std::vector<RealD> > Ct_pion_correction_sep(Lt,init), Ct_j5q_correction_sep(Lt,init), Ct_kaon_correction_sep(Lt,init), Ct_ps_singlet_correction_sep(Lt,init), Ct_j5q_kaon_correction_sep(Lt,init);
+
 
     for(int s=0;s<args.nsloppy;s++){ 
       int t0 = src_t[s];
@@ -304,11 +314,11 @@ void run(const MeasArgs &args, const Opts &opts){
       std::vector<RealD> Ct_kaon_sloppy = momWallSourceKaonCorrelator(p1, t0, Rp1, Rp1_s);
       std::vector<RealD> Ct_j5q_kaon_sloppy = momWallSourceKaonCorrelator(p1, t0, Rp1_mid, Rp1_s_mid);
 
-      addResult(Ct_pion, Ct_pion_sep, Ct_pion_sloppy, args.nsloppy);
-      addResult(Ct_j5q, Ct_j5q_sep, Ct_j5q_sloppy, args.nsloppy);
-      addResult(Ct_ps_singlet, Ct_ps_singlet_sep, Ct_ps_singlet_sloppy, args.nsloppy);
-      addResult(Ct_kaon, Ct_kaon_sep, Ct_kaon_sloppy, args.nsloppy);
-      addResult(Ct_j5q_kaon, Ct_j5q_kaon_sep, Ct_j5q_kaon_sloppy, args.nsloppy);
+      insertResult(Ct_pion, Ct_pion_sep, Ct_pion_sloppy, args.nsloppy, t0);
+      insertResult(Ct_j5q, Ct_j5q_sep, Ct_j5q_sloppy, args.nsloppy, t0);
+      insertResult(Ct_ps_singlet, Ct_ps_singlet_sep, Ct_ps_singlet_sloppy, args.nsloppy, t0);
+      insertResult(Ct_kaon, Ct_kaon_sep, Ct_kaon_sloppy, args.nsloppy, t0);
+      insertResult(Ct_j5q_kaon, Ct_j5q_kaon_sep, Ct_j5q_kaon_sloppy, args.nsloppy, t0);
       
       printMem("Post sloppy contractions");
       
@@ -344,11 +354,11 @@ void run(const MeasArgs &args, const Opts &opts){
 	std::cout << "Including in correction with multiplicity " << eit->second << std::endl;
 	RealD eweight = RealD(args.nexact)/eit->second; //avg is done using   out[t] += in[t]/weight  and we want this value to appear multiple times in the average if necessary
 
-	addResult(Ct_pion_correction, Ct_pion_corr, eweight);
-	addResult(Ct_j5q_correction, Ct_j5q_sep, Ct_j5q_corr, eweight);
-	addResult(Ct_ps_singlet_correction, Ct_ps_singlet_sep, Ct_ps_singlet_corr, eweight);
-	addResult(Ct_kaon_correction, Ct_kaon_sep, Ct_kaon_corr, eweight);
-	addResult(Ct_j5q_kaon_correction, Ct_j5q_kaon_sep, Ct_j5q_kaon_corr, eweight);
+	insertResult(Ct_pion_correction, Ct_pion_correction_sep, Ct_pion_corr, eweight, t0);
+	insertResult(Ct_j5q_correction, Ct_j5q_correction_sep, Ct_j5q_corr, eweight, t0);
+	insertResult(Ct_ps_singlet_correction, Ct_ps_singlet_correction_sep, Ct_ps_singlet_corr, eweight, t0);
+	insertResult(Ct_kaon_correction, Ct_kaon_correction_sep, Ct_kaon_corr, eweight, t0);
+	insertResult(Ct_j5q_kaon_correction, Ct_j5q_kaon_correction_sep, Ct_j5q_kaon_corr, eweight, t0);
 
 	printMem("Post exact contractions");
       }
@@ -357,19 +367,29 @@ void run(const MeasArgs &args, const Opts &opts){
 
     }
 
-    if(args.nsloppy != 0){
-      asciiWriteArray(Ct_pion, "pion_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
-      asciiWriteArray(Ct_j5q, "j5q_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
-      asciiWriteArray(Ct_ps_singlet, "ps_singlet_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
-      asciiWriteArray(Ct_kaon, "kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
-      asciiWriteArray(Ct_j5q_kaon, "j5q_kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    asciiWriteArray(Ct_pion, "pion_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+    asciiWriteArray(Ct_j5q, "j5q_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+    asciiWriteArray(Ct_ps_singlet, "ps_singlet_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    asciiWriteArray(Ct_kaon, "kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    asciiWriteArray(Ct_j5q_kaon, "j5q_kaon_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
 
-      asciiWriteArray(Ct_pion_correction, "pion_correction_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
-      asciiWriteArray(Ct_j5q_correction, "j5q_correction_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
-      asciiWriteArray(Ct_ps_singlet_correction, "ps_singlet_correction_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
-      asciiWriteArray(Ct_kaon_correction, "kaon_correction_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
-      asciiWriteArray(Ct_j5q_kaon_correction, "j5q_kaon_correction_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
-    }
+    asciiWriteArray(Ct_pion_correction, "pion_correction_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+    asciiWriteArray(Ct_j5q_correction, "j5q_correction_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+    asciiWriteArray(Ct_ps_singlet_correction, "ps_singlet_correction_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    asciiWriteArray(Ct_kaon_correction, "kaon_correction_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    asciiWriteArray(Ct_j5q_kaon_correction, "j5q_kaon_correction_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+
+    asciiWriteArray(Ct_pion_sep, "pion_sep_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+    asciiWriteArray(Ct_j5q_sep, "j5q_sep_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+    asciiWriteArray(Ct_ps_singlet_sep, "ps_singlet_sep_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    asciiWriteArray(Ct_kaon_sep, "kaon_sep_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    asciiWriteArray(Ct_j5q_kaon_sep, "j5q_kaon_sep_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+
+    asciiWriteArray(Ct_pion_correction_sep, "pion_correction_sep_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+    asciiWriteArray(Ct_j5q_correction_sep, "j5q_correction_sep_mom" + momstr(p1) + "_mom" + momstr(p2), traj);
+    asciiWriteArray(Ct_ps_singlet_correction_sep, "ps_singlet_correction_sep_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    asciiWriteArray(Ct_kaon_correction_sep, "kaon_correction_sep_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
+    asciiWriteArray(Ct_j5q_kaon_correction_sep, "j5q_kaon_correction_sep_mom" + momstr(p1) + "_mom" + momstr(mp1), traj);
   }
 }
 
