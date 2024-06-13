@@ -69,12 +69,13 @@ namespace GridMeas{
     return createActionF(action,Params,mass,mobius_scale,Umu,*Grids.FGrid,*Grids.FrbGrid,*Grids.UGrid,*Grids.UrbGrid);
   }
 
-
-  XconjWilsonImplParams XconjParamsTransfer(const GparityWilsonImplParams &gpimpl){
+  //boundary_phase = 1.0   ->  Xconj
+  //boundary_phase = -1.0   ->  Xbar-conj 
+  XconjWilsonImplParams XconjParamsTransfer(const GparityWilsonImplParams &gpimpl, double boundary_phase = 1.0){
     XconjWilsonImplParams out;
     out.dirichlet = gpimpl.dirichlet;
     out.twists = gpimpl.twists;
-    out.boundary_phase = 1.0; //X-conj
+    out.boundary_phase = boundary_phase;
     return out;
   }
 
@@ -84,14 +85,15 @@ namespace GridMeas{
 							  GridCartesian         &FiveDimGrid,
 							  GridRedBlackCartesian &FiveDimRedBlackGrid,
 							  GridCartesian         &FourDimGrid,
-							  GridRedBlackCartesian &FourDimRedBlackGrid
+							  GridRedBlackCartesian &FourDimRedBlackGrid,
+							  double boundary_phase = 1.0   
 							  ){
     double bpc = mobius_scale;
     double bmc = 1.0;
     double b = (bpc + bmc)/2.;
     double c = (bpc - bmc)/2.;
     
-    auto Xparams = XconjParamsTransfer(Params);
+    auto Xparams = XconjParamsTransfer(Params, boundary_phase);
 
     switch(action){
     case ActionType::DWF:
@@ -110,14 +112,15 @@ namespace GridMeas{
 							  GridCartesian         &FiveDimGrid,
 							  GridRedBlackCartesian &FiveDimRedBlackGrid,
 							  GridCartesian         &FourDimGrid,
-							  GridRedBlackCartesian &FourDimRedBlackGrid
+							  GridRedBlackCartesian &FourDimRedBlackGrid,
+							  double boundary_phase = 1.0   
 							  ){
     double bpc = mobius_scale;
     double bmc = 1.0;
     double b = (bpc + bmc)/2.;
     double c = (bpc - bmc)/2.;
     
-    auto Xparams = XconjParamsTransfer(Params);
+    auto Xparams = XconjParamsTransfer(Params, boundary_phase);
 
     switch(action){
     case ActionType::DWF:
@@ -227,5 +230,66 @@ namespace GridMeas{
     }
 
   };
+  
+  CayleyFermion5D<WilsonImplD>* createPeriodicActionD(ActionType action,
+						      const WilsonImplD::ImplParams &Params, double mass, double mobius_scale,
+						      LatticeGaugeFieldD &Umu,
+						      GridCartesian         &FiveDimGrid,
+						      GridRedBlackCartesian &FiveDimRedBlackGrid,
+						      GridCartesian         &FourDimGrid,
+						      GridRedBlackCartesian &FourDimRedBlackGrid
+						      ){
+    double bpc = mobius_scale;
+    double bmc = 1.0;
+    double b = (bpc + bmc)/2.;
+    double c = (bpc - bmc)/2.;
+    
+    switch(action){
+    case ActionType::DWF:
+      std::cout << GridLogMessage << "Creating double prec periodic DWF action with m=" << mass << std::endl;
+      return new DomainWallFermionD(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, Params);
+    case ActionType::Mobius:
+      std::cout << GridLogMessage << "Creating double prec periodic Mobius action with b+c=" << b+c << " b-c=" << b-c << " m=" << mass << std::endl;
+      return new MobiusFermionD(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, b, c, Params);
+    };
+    return nullptr;
+  };
+
+  CayleyFermion5D<WilsonImplF>* createPeriodicActionF(ActionType action,
+					      const WilsonImplD::ImplParams &Params, double mass, double mobius_scale,
+					      LatticeGaugeFieldF &Umu,
+					      GridCartesian         &FiveDimGrid,
+					      GridRedBlackCartesian &FiveDimRedBlackGrid,
+					      GridCartesian         &FourDimGrid,
+					      GridRedBlackCartesian &FourDimRedBlackGrid
+					      ){
+    double bpc = mobius_scale;
+    double bmc = 1.0;
+    double b = (bpc + bmc)/2.;
+    double c = (bpc - bmc)/2.;
+    
+    switch(action){
+    case ActionType::DWF:
+      std::cout << GridLogMessage << "Creating single prec periodic DWF action with m=" << mass << std::endl;	    
+      return new DomainWallFermionF(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, Params);
+    case ActionType::Mobius:
+      std::cout << GridLogMessage << "Creating single prec periodic Mobius action with b+c=" << b+c << " b-c=" << b-c << " m=" << mass << std::endl;	    
+      return new MobiusFermionF(Umu, FiveDimGrid, FiveDimRedBlackGrid, FourDimGrid, FourDimRedBlackGrid, mass, 1.8, b, c, Params);
+    };
+    return nullptr;
+  };
+
+
+  CayleyFermion5D<WilsonImplD>* createPeriodicActionD(ActionType action,
+						     const WilsonImplD::ImplParams &Params, double mass, double mobius_scale,
+						     LatticeGaugeFieldD &Umu, Grids &Grids){
+    return createPeriodicActionD(action,Params,mass,mobius_scale,Umu,*Grids.FGrid,*Grids.FrbGrid,*Grids.UGrid,*Grids.UrbGrid);
+  }
+  CayleyFermion5D<WilsonImplF>* createPeriodicActionF(ActionType action,
+						     const WilsonImplD::ImplParams &Params, double mass, double mobius_scale,
+						     LatticeGaugeFieldF &Umu, Grids &Grids){
+    return createPeriodicActionF(action,Params,mass,mobius_scale,Umu,*Grids.FGrid,*Grids.FrbGrid,*Grids.UGrid,*Grids.UrbGrid);
+  }
+
 
 }

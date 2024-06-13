@@ -89,3 +89,8 @@ test_gpcosinewall_2ptmeas: test_gpcosinewall_2ptmeas.cc
 test_split_grid_propagator_invert_Xconjsrc: test_split_grid_propagator_invert_Xconjsrc.cc
 	$(CXX) test_split_grid_propagator_invert_Xconjsrc.cc -c -o test_split_grid_propagator_invert_Xconjsrc.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_split_grid_propagator_invert_Xconjsrc.o -o test_split_grid_propagator_invert_Xconjsrc $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+
+test_propagator_invert_Xconj_dirichlet: test_propagator_invert_Xconj_dirichlet.cc
+	$(CXX) test_propagator_invert_Xconj_dirichlet.cc -c -o test_propagator_invert_Xconj_dirichlet.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_propagator_invert_Xconj_dirichlet.o -o test_propagator_invert_Xconj_dirichlet $(CXXFLAGS) $(LDFLAGS) $(LIBS)
+

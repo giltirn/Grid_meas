@@ -121,5 +121,17 @@ namespace GridMeas{
     return ss.str();
   }
 
-
+  //f(x) = exp(-i p_\mu x_\mu)
+  LatticeComplexD phaseFieldFour(const std::vector<double> &p, GridBase* Grid){
+    LatticeComplexD out(Grid);
+    LatticeComplexD coor(Grid);
+    out=Zero();
+    for(int mu=0;mu<Nd;mu++){
+      LatticeCoordinate(coor,mu);
+      out = out + p[mu] * coor;
+    }
+    ComplexD ci(0.0,-1.0);
+    out = exp(out*ci);
+    return out;
+  }
 };

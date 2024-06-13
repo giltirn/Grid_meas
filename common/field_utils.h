@@ -158,6 +158,17 @@ namespace GridMeas{
     to.Checkerboard() = from.Checkerboard();
   }
 
+  //Convert a 1f X-conjugate vector to a 2f
+  template<typename TwoFlavorField, typename OneFlavorField>
+  void get2fXbarConjVector(TwoFlavorField &to, const OneFlavorField &from){
+    OneFlavorField tmp1f(from.Grid());
+    PokeIndex<GparityFlavourIndex>(to, from, 0);
+    tmp1f = Xmatrix()*conjugate(from);
+    PokeIndex<GparityFlavourIndex>(to, tmp1f, 1);
+    to.Checkerboard() = from.Checkerboard();
+  }
+
+
   //Convert a pair of 1f spin-color matrices into a spin-color-flavor matrix with X-conjugate columns
   template<typename TwoFlavorMatrixField, typename OneFlavorMatrixField>
   void get2fXconjMatrix(TwoFlavorMatrixField &to, const OneFlavorMatrixField &from_0, const OneFlavorMatrixField &from_1){

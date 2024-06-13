@@ -8,9 +8,12 @@ namespace GridMeas{
 
   //Invert the propagator against a field using the X-conjugate action under the hood
   template<typename FermionActionD, typename FermionActionF, typename EvecFieldType>
-  void mixedPrecInvertField(FermionFieldD &sol, const FermionFieldD &src, FermionActionD &action_d, FermionActionF &action_f, 
+  void mixedPrecInvertField(typename FermionActionD::FermionField &sol, const typename FermionActionD::FermionField &src, FermionActionD &action_d, FermionActionF &action_f, 
 			  const MixedCGargs &args,
 			  std::vector<Real> const* evals, std::vector<EvecFieldType> const * evecs){
+    typedef typename FermionActionD::FermionField FermionFieldD;
+    typedef typename FermionActionF::FermionField FermionFieldF;
+
     std::cout << GridLogMessage << "Starting source inversion" << std::endl;
     SchurDiagMooeeOperator<FermionActionD,FermionFieldD> hermop_d(action_d);
     SchurDiagMooeeOperator<FermionActionF,FermionFieldF> hermop_f(action_f);
@@ -49,8 +52,25 @@ namespace GridMeas{
   }
 
   template<typename FermionActionD, typename FermionActionF>
-  void mixedPrecInvertField(FermionFieldD &sol, const FermionFieldD &src, FermionActionD &action_d, FermionActionF &action_f, 
+  void mixedPrecInvertField(typename FermionActionD::FermionField &sol, const typename FermionActionD::FermionField &src, FermionActionD &action_d, FermionActionF &action_f, 
 			    const MixedCGargs &args){
-    mixedPrecInvertField(sol,src,action_d,action_f,args,(std::vector<Real> const*)nullptr, (std::vector<FermionFieldD> const *)nullptr);
+    mixedPrecInvertField(sol,src,action_d,action_f,args,(std::vector<Real> const*)nullptr, (std::vector<typename FermionActionD::FermionField> const *)nullptr);
   }
+
+  template<typename FermionActionD, typename FermionActionF>
+  void mixedPrecInvert5dField(typename FermionActionD::FermionField &sol, const typename FermionActionD::FermionField &src, FermionActionD &action_d, FermionActionF &action_f, 
+			      const MixedCGargs &args){
+    typedef typename FermionActionD::FermionField FermionFieldD;
+    typedef typename FermionActionF::FermionField FermionFieldF;
+
+    std::cout << GridLogMessage << "Starting source inversion" << std::endl;
+    SchurDiagMooeeOperator<FermionActionD,FermionFieldD> hermop_d(action_d);
+    SchurDiagMooeeOperator<FermionActionF,FermionFieldF> hermop_f(action_f);
+  
+    LinearFunction<FermionFieldD>* mcg = MixedCGfactory(args, action_f.FermionRedBlackGrid(),  hermop_f, hermop_d);
+    
+    (*mcg)(src,sol);
+  }
+
+    
 };
