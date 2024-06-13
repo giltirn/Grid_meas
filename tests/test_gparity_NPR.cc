@@ -70,13 +70,11 @@ namespace NPR{
   }
 
   //Get the first allowed symmetric momentum combination with mu>mumin, returns mu
-  double getSymmetricMomentumComb(std::vector<double> &p1_out, std::vector<double> &p2_out, const double ainv, const double mumin, int L, int Lt, const std::vector<int> &BCs){
+  double getSymmetricMomentumComb(std::vector<double> &p1_out, std::vector<double> &p2_out, const double ainv, const double mumin, int L, int Lt, const std::vector<int> &BCs, const int mmax=7){
     std::vector<double> units = momUnits(L,Lt,BCs);
 
     std::cout << "Getting allow momenta" << std::endl;
     std::vector<Momentum> allowed;
-
-    int mmax = 7;
 
     Momentum p = {0,0,0,0};
     for(int m0=-mmax;m0<=mmax;m0++){
@@ -275,7 +273,49 @@ int main(int argc, char** argv){
   double mumin; std::string a3(argv[3]);
   GridCmdOptionFloat(a3, mumin);
 
+  int mmax=7;
+  double ainv = 1.73;
   int Ls = 12;
+  RealD ml = 0.05;
+  int Gamma_idx = 0; // 0: scalar, 15: pseudoscalar, 1-3: gamma_mu
+ 
+  for(int i=0;i<argc;i++){
+    std::string sarg(argv[i]);
+    if(sarg == "-ainv"){
+      assert(i<argc-1);
+      std::string narg(argv[i+1]);
+      GridCmdOptionFloat(narg, ainv);
+      std::cout << "Set ainv to " << ainv << std::endl;
+    }else if(sarg == "-mmax"){
+      assert(i<argc-1);
+      std::string narg(argv[i+1]);
+      GridCmdOptionInt(narg, mmax);
+      std::cout << "Set mmax to " << mmax << std::endl;
+    }else if(sarg == "-Ls"){
+      assert(i<argc-1);
+      std::string narg(argv[i+1]);
+      GridCmdOptionInt(narg, Ls);
+      std::cout << "Set Ls to " << Ls << std::endl;
+    }else if(sarg == "-ml"){
+      assert(i<argc-1);
+      std::string narg(argv[i+1]);
+      GridCmdOptionFloat(narg, ml);
+      std::cout << "Set ml to " << ml << std::endl;
+    }else if(sarg == "-Gamma"){
+      assert(i<argc-1);
+      std::string narg(argv[i+1]);
+      GridCmdOptionInt(narg, Gamma_idx);
+      std::cout << "Set Gamma to " << Gamma_idx << std::endl;
+    }
+  }
+
+  std::map<int, Gamma::Algebra> gmap = { {0,Gamma::Algebra::Identity}, {15,Gamma::Algebra::Gamma5}, 
+					 {1,Gamma::Algebra::GammaX}, {2,Gamma::Algebra::GammaY}, {3,Gamma::Algebra::GammaZ}, {4,Gamma::Algebra::GammaT} };
+
+  assert(gmap.count(Gamma_idx) && "Unknown choice of Gamma");
+  Gamma GammaOp(gmap[Gamma_idx]);
+
+
   Coordinate latt = GridDefaultLatt();
   std::cout << "Lattice size " << latt << std::endl;
 
@@ -288,17 +328,17 @@ int main(int argc, char** argv){
   //Get the quark momenta
 #define TWISTED_PRD
 
-  double ainv = 1.73;
+
   std::cout << "mu_min = " << mumin << " GeV, a^-1 = " << ainv << " GeV" << std::endl;
   
   std::vector<double> p1_GP, p2_GP;
-  double mu_GP = NPR::getSymmetricMomentumComb(p1_GP, p2_GP, ainv, mumin, L, Lt, BCs);
+  double mu_GP = NPR::getSymmetricMomentumComb(p1_GP, p2_GP, ainv, mumin, L, Lt, BCs, mmax);
   if(mu_GP != -1.) std::cout << "Found symmetric momentum combination for Gparity lattice with mu=" << mu_GP << std::endl;
 
 #ifndef TWISTED_PRD
   std::vector<double> p1_P, p2_P;
   std::vector<int> BCs_P = {0,0,0,tBC_P};
-  double mu_P = NPR::getSymmetricMomentumComb(p1_P, p2_P, ainv, mumin, L, Lt, BCs_P);
+  double mu_P = NPR::getSymmetricMomentumComb(p1_P, p2_P, ainv, mumin, L, Lt, BCs_P, mmax);
   if(mu_P != -1.) std::cout << "Found symmetric momentum combination for periodic lattice with mu=" << mu_P << std::endl;
 #else
   double mu_P = mu_GP;
@@ -348,7 +388,6 @@ int main(int argc, char** argv){
   precisionChange(U_f, U_d);
   
   ActionType action = ActionType::Mobius;
-  RealD ml = 0.05;
   RealD mobius_scale = 2.0;
 
   CayleyFermion5D<GparityWilsonImplD>* action_d = createActionD(action, Params, ml, mobius_scale, U_d, *FGridD, *FrbGridD, *UGridD, *UrbGridD);
@@ -414,7 +453,6 @@ int main(int argc, char** argv){
   LatticeSCFmatrixD D_p2_in = mulF11leftright( LatticeSCFmatrixD(prop2_GP * prop2_GP_sinkFT_inv ) );
   
   Gamma gamma5(Gamma::Algebra::Gamma5);
-  Gamma GammaOp(Gamma::Algebra::Identity);
 
   LatticeSCFmatrixD D_p1_out = gamma5 * adj(D_p1_in) * gamma5;
 
