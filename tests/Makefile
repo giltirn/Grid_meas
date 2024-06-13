@@ -94,3 +94,6 @@ test_propagator_invert_Xconj_dirichlet: test_propagator_invert_Xconj_dirichlet.c
 	$(CXX) test_propagator_invert_Xconj_dirichlet.cc -c -o test_propagator_invert_Xconj_dirichlet.o $(INCLUDES) $(CXXFLAGS)
 	$(CXXLD) test_propagator_invert_Xconj_dirichlet.o -o test_propagator_invert_Xconj_dirichlet $(CXXFLAGS) $(LDFLAGS) $(LIBS)
 
+test_gparity_NPR: test_gparity_NPR.cc
+	$(CXX) test_gparity_NPR.cc -c -o test_gparity_NPR.o $(INCLUDES) $(CXXFLAGS)
+	$(CXXLD) test_gparity_NPR.o -o test_gparity_NPR $(CXXFLAGS) $(LDFLAGS) $(LIBS)

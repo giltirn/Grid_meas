@@ -7,7 +7,7 @@
 namespace GridMeas{
   using namespace Grid;
 
-  template<typename Action, typename std::enable_if<std::is_same<typename GridTypeMapper<Action::SitePropagator>::scalar_objectD , SCFmatrixD>::value, int>::type = 0>
+  template<typename Action, typename std::enable_if<std::is_same<typename GridTypeMapper<typename Action::SitePropagator>::scalar_objectD , SCFmatrixD>::value, int>::type = 0>
   SCFmatrixD unitSiteSrc(){
     SCFmatrixD out;
     out = Zero();
@@ -17,7 +17,7 @@ namespace GridMeas{
 	  out(f,f)(s,s)(c,c) = 1.;
     return out;
   }
-  template<typename Action, typename std::enable_if<std::is_same<typename GridTypeMapper<Action::SitePropagator>::scalar_objectD, SpinColourMatrixD>::value, int>::type = 0>
+  template<typename Action, typename std::enable_if<std::is_same<typename GridTypeMapper<typename Action::SitePropagator>::scalar_objectD, SpinColourMatrixD>::value, int>::type = 0>
   SpinColourMatrixD unitSiteSrc(){
     SpinColourMatrixD out;
     out = Zero();
