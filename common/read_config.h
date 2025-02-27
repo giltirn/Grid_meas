@@ -13,7 +13,8 @@ namespace GridMeas{
 			 const std::string &cfg_stub,
 			 const std::string &rng_stub){
 
-    CheckpointerParameters p(cfg_stub, rng_stub);
+    std::string dummy;
+    CheckpointerParameters p(cfg_stub, dummy, rng_stub);
     NerscHmcCheckpointer<ConjugateGimplD> cp(p);
 
     cp.CheckpointRestore(traj, U, sRNG, pRNG);
@@ -33,7 +34,8 @@ namespace GridMeas{
     typedef GaugeStatistics<ConjugateGimplD> GaugeStats;
     
     std::string config, dummy;
-    cp.build_filenames(traj, p, config, dummy);  
+    cp.build_filenames(traj, p, config, dummy, dummy);
+       
     cp.check_filename(config);
   
     FieldMetaData header;
