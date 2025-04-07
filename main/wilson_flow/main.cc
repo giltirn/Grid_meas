@@ -52,6 +52,133 @@ void writeTsliceTopQsmr(const std::vector<std::pair<RealD,std::vector<RealD> > >
     }
 }
 
+struct GparitySetup{
+  typedef Actions ActionsType;
+  typedef ConjugateGimplD GimplD;
+  typedef CayleyFermion5D<GparityWilsonImplD> ActionTypeD;
+  
+  inline static std::unique_ptr<ActionsType> setupActions(const MeasArgs &args, LatticeGaugeFieldD &U_d, Grids &gridsD, LatticeGaugeFieldF &U_f, Grids &gridsF){ 
+    GparityWilsonImplD::ImplParams action_params = setupActionParams(args.GparityDirs);
+    return std::unique_ptr<Actions>(new Actions(args.action, action_params, args.mass, args.mobius_scale, U_d, gridsD, U_f, gridsF));
+  }
+
+  inline static void invertRandomSource(FermionFieldD &rand_vol_sol, const FermionFieldD &rand_vol_src, Actions &actions, const MixedCGargs &cg_args){
+    mixedPrecInvertFieldXconj(rand_vol_sol, rand_vol_src, *actions.xconj_action_d, *actions.xconj_action_f, cg_args);
+  }
+};
+
+struct PeriodicSetup{
+  typedef ActionsPeriodic ActionsType;
+  typedef PeriodicGimplD GimplD;
+  typedef CayleyFermion5D<WilsonImplD> ActionTypeD;
+  
+  inline static std::unique_ptr<ActionsType> setupActions(const MeasArgs &args, LatticeGaugeFieldD &U_d, Grids &gridsD, LatticeGaugeFieldF &U_f, Grids &gridsF){ 
+    WilsonImplD::ImplParams action_params = setupActionParamsPeriodic();
+    return std::unique_ptr<ActionsPeriodic>(new ActionsPeriodic(args.action, action_params, args.mass, args.mobius_scale, U_d, gridsD, U_f, gridsF));
+  }
+
+  inline static void invertRandomSource(FermionFieldPeriodicD &rand_vol_sol, const FermionFieldPeriodicD &rand_vol_src, ActionsPeriodic &actions, const MixedCGargs &cg_args){
+    mixedPrecInvertField(rand_vol_sol, rand_vol_src, *actions.action_d, *actions.action_f, cg_args);
+  }
+};
+
+template<typename Setup>
+void run(const MeasArgs &args, int cfg_start, int cfg_step, int cfg_lessthan, bool cps_cfg){
+  
+  Coordinate latt = GridDefaultLatt();
+  int Lt = latt[3];
+  
+  Grids gridsD = makeDoublePrecGrids(args.Ls, latt);
+  Grids gridsF = makeSinglePrecGrids(args.Ls, latt);
+
+  LatticeGaugeFieldD U_d(gridsD.UGrid);
+  LatticeGaugeFieldF U_f(gridsF.UGrid);
+  LatticeGaugeFieldD V_d(gridsD.UGrid); //smeared
+  
+  std::unique_ptr<typename Setup::ActionsType> _actions = Setup::setupActions(args, U_d, gridsD, U_f, gridsF);
+  typename Setup::ActionsType &actions = *_actions;
+
+  typedef typename Setup::GimplD GimplD;
+  typedef typename Setup::ActionTypeD ActionTypeD;
+  typedef typename ActionTypeD::FermionField FermionFieldTypeD;
+  
+  //Start traj loop
+  for(int traj = cfg_start; traj < cfg_lessthan; traj += cfg_step){
+    std::cout << GridLogMessage << "Starting traj " << traj << std::endl;
+
+    std::vector<int> seeds4({traj, traj+2, traj+3, traj+4});
+    GridParallelRNG pRNG(gridsD.UGrid); //4D!
+    pRNG.SeedFixedIntegers(seeds4);
+    
+    GridSerialRNG sRNG;  
+    sRNG.SeedFixedIntegers(seeds4); 
+
+    std::cout << GridLogMessage << "Reading configuration" << std::endl;
+    cps_cfg ? 
+      readCPSconfiguration<GimplD>(U_d, sRNG, pRNG, traj, args.cfg_stub) :
+      readConfiguration<GimplD>(U_d, sRNG, pRNG, traj, args.cfg_stub, args.rng_stub);
+
+    precisionChange(U_f,U_d);
+    actions.ImportGauge(U_d,U_f);
+
+    //Timeslice plaquette
+    {
+      auto tslice_plaq = WilsonLoops<GimplD>::timesliceAvgSpatialPlaquette(U_d);
+      asciiWriteArray(tslice_plaq, "timeslice_plaq", traj);   
+    }    
+    //Oriented plaquette
+    {
+      RealD plaq;
+      plaq = avgOrientedPlaquette<GimplD>(0,1,U_d); asciiWriteValue(plaq, "plaq_XY", traj);
+      plaq = avgOrientedPlaquette<GimplD>(0,2,U_d); asciiWriteValue(plaq, "plaq_XZ", traj);
+      plaq = avgOrientedPlaquette<GimplD>(1,2,U_d); asciiWriteValue(plaq, "plaq_YZ", traj);
+      plaq = avgOrientedPlaquette<GimplD>(0,3,U_d); asciiWriteValue(plaq, "plaq_XT", traj);
+      plaq = avgOrientedPlaquette<GimplD>(1,3,U_d); asciiWriteValue(plaq, "plaq_YT", traj);
+      plaq = avgOrientedPlaquette<GimplD>(2,3,U_d); asciiWriteValue(plaq, "plaq_ZT", traj);
+    }
+
+    //Chiral condensate
+    {
+      FermionFieldTypeD rand_vol_src = randomGaussianVolumeSource<ActionTypeD>(pRNG, gridsD.UGrid);
+      FermionFieldTypeD rand_vol_sol(gridsD.UGrid);
+      Setup::invertRandomSource(rand_vol_sol, rand_vol_src, actions, args.cg_args);
+      RealD cc = chiralCondensate(rand_vol_sol, rand_vol_src);
+      asciiWriteValue(cc, "chiral_condensate", traj);
+    }
+
+    //Setup measurements to perform during the smearing
+    WilsonFlowIO wflow_io;
+    wflow_io.do_energy_density_clover = true;
+    wflow_io.do_energy_density_plaq = true;
+    wflow_io.do_timeslice_topq = true;
+    wflow_io.do_timeslice_plaq = true;
+    wflow_io.timeslice_topq_meas_freq = args.tslice_topq_meas_freq;
+    wflow_io.timeslice_plaq_meas_freq = args.tslice_plaq_meas_freq;
+    
+    std::cout << GridLogMessage << "Starting Wilson Flow measurement" << std::endl;
+    WilsonFlowAdaptiveMeasGeneral<GimplD>(wflow_io, args.wflow_init_epsilon, args.wflow_maxTau, args.wflow_tolerance, U_d, &V_d);
+	
+    asciiWriteArray(wflow_io.energy_density_clover, "wflow_clover", traj);
+    asciiWriteArray(wflow_io.energy_density_plaq, "wflow_plaq", traj);
+    writeTsliceTopQsmr(wflow_io.timeslice_topq, "timeslice_topq5li_smr", traj);
+    writeTsliceTopQsmr(wflow_io.timeslice_plaq, "timeslice_plaq_smr", traj);
+
+    //Measure topological charge
+    std::vector<std::vector<Real> > tslice_topq5li_contribs = timesliceTopologicalCharge5LiContributions<GimplD>(V_d);
+    asciiWriteArray(tslice_topq5li_contribs, "timeslice_topq5li_contribs", traj);
+
+    std::vector<Real> tslice_topq5li = timesliceTopologicalCharge5Li(tslice_topq5li_contribs);
+    asciiWriteArray(tslice_topq5li, "timeslice_topq5li", traj);
+
+    std::vector<Real> topq5li_contribs = topologicalCharge5LiContributions(tslice_topq5li_contribs);
+    asciiWriteArray(topq5li_contribs, "topq5li_contribs", traj);
+   
+    RealD topq5li = topologicalCharge5Li(topq5li_contribs);
+    asciiWriteValue(topq5li, "topq5li", traj);
+  }
+}
+
+
 int main(int argc, char** argv){
   Grid_init(&argc, &argv);
 
@@ -86,105 +213,15 @@ int main(int argc, char** argv){
     return 0;
   }
 
-  Coordinate latt = GridDefaultLatt();
-  int Lt = latt[3];
-  
-  Grids gridsD = makeDoublePrecGrids(args.Ls, latt);
-  Grids gridsF = makeSinglePrecGrids(args.Ls, latt);
+  int ngp = 0;
+  for(int i=0;i<4;i++) ngp += args.GparityDirs[i];
 
-  assert(Nd == 4);
-  std::vector<int> dirs4(4);
-  for(int i=0;i<3;i++) dirs4[i] = args.GparityDirs[i];
-  dirs4[3] = 0; //periodic gauge BC in time
-  
-  std::cout << GridLogMessage << "Gauge BCs: " << dirs4 << std::endl;
-  ConjugateGimplD::setDirections(dirs4); //gauge BC
-
-  GparityWilsonImplD::ImplParams action_params;
-  for(int i=0;i<3;i++) action_params.twists[i] = args.GparityDirs[i];
-  action_params.twists[3] = 1; //antiperiodic BC in time
-
-  LatticeGaugeFieldD U_d(gridsD.UGrid);
-  LatticeGaugeFieldF U_f(gridsF.UGrid);
-  LatticeGaugeFieldD V_d(gridsD.UGrid); //smeared
-
-  Actions actions(args.action, action_params, args.mass, args.mobius_scale, U_d, gridsD, U_f, gridsF);
-
-  //Start traj loop
-  for(int traj = cfg_start; traj < cfg_lessthan; traj += cfg_step){
-    std::cout << GridLogMessage << "Starting traj " << traj << std::endl;
-
-    std::vector<int> seeds4({traj, traj+2, traj+3, traj+4});
-    GridParallelRNG pRNG(gridsD.UGrid); //4D!
-    pRNG.SeedFixedIntegers(seeds4);
-    
-    GridSerialRNG sRNG;  
-    sRNG.SeedFixedIntegers(seeds4); 
-
-    std::cout << GridLogMessage << "Reading configuration" << std::endl;
-    cps_cfg ? 
-      readCPSconfiguration(U_d, sRNG, pRNG, traj, args.cfg_stub) :
-      readConfiguration(U_d, sRNG, pRNG, traj, args.cfg_stub, args.rng_stub);
-
-    precisionChange(U_f,U_d);
-    actions.ImportGauge(U_d,U_f);
-
-    //Timeslice plaquette
-    {
-      auto tslice_plaq = WilsonLoops<ConjugateGimplD>::timesliceAvgSpatialPlaquette(U_d);
-      asciiWriteArray(tslice_plaq, "timeslice_plaq", traj);   
-    }    
-    //Oriented plaquette
-    {
-      RealD plaq;
-      plaq = avgOrientedPlaquette(0,1,U_d); asciiWriteValue(plaq, "plaq_XY", traj);
-      plaq = avgOrientedPlaquette(0,2,U_d); asciiWriteValue(plaq, "plaq_XZ", traj);
-      plaq = avgOrientedPlaquette(1,2,U_d); asciiWriteValue(plaq, "plaq_YZ", traj);
-      plaq = avgOrientedPlaquette(0,3,U_d); asciiWriteValue(plaq, "plaq_XT", traj);
-      plaq = avgOrientedPlaquette(1,3,U_d); asciiWriteValue(plaq, "plaq_YT", traj);
-      plaq = avgOrientedPlaquette(2,3,U_d); asciiWriteValue(plaq, "plaq_ZT", traj);
-    }
-
-    //Chiral condensate
-    {
-      FermionFieldD rand_vol_src = randomGaussianVolumeSource(pRNG, gridsD.UGrid);
-      FermionFieldD rand_vol_sol(gridsD.UGrid);
-      mixedPrecInvertFieldXconj(rand_vol_sol, rand_vol_src, *actions.xconj_action_d, *actions.xconj_action_f, args.cg_args);
-      RealD cc = chiralCondensate(rand_vol_sol, rand_vol_src);
-      asciiWriteValue(cc, "chiral_condensate", traj);
-    }
-
-    //Setup measurements to perform during the smearing
-    WilsonFlowIO wflow_io;
-    wflow_io.do_energy_density_clover = true;
-    wflow_io.do_energy_density_plaq = true;
-    wflow_io.do_timeslice_topq = true;
-    wflow_io.do_timeslice_plaq = true;
-    wflow_io.timeslice_topq_meas_freq = args.tslice_topq_meas_freq;
-    wflow_io.timeslice_plaq_meas_freq = args.tslice_plaq_meas_freq;
-    
-    std::cout << GridLogMessage << "Starting Wilson Flow measurement" << std::endl;
-    WilsonFlowAdaptiveMeasGeneral(wflow_io, args.wflow_init_epsilon, args.wflow_maxTau, args.wflow_tolerance, U_d, &V_d);
-	
-    asciiWriteArray(wflow_io.energy_density_clover, "wflow_clover", traj);
-    asciiWriteArray(wflow_io.energy_density_plaq, "wflow_plaq", traj);
-    writeTsliceTopQsmr(wflow_io.timeslice_topq, "timeslice_topq5li_smr", traj);
-    writeTsliceTopQsmr(wflow_io.timeslice_plaq, "timeslice_plaq_smr", traj);
-
-    //Measure topological charge
-    std::vector<std::vector<Real> > tslice_topq5li_contribs = timesliceTopologicalCharge5LiContributions(V_d);
-    asciiWriteArray(tslice_topq5li_contribs, "timeslice_topq5li_contribs", traj);
-
-    std::vector<Real> tslice_topq5li = timesliceTopologicalCharge5Li(tslice_topq5li_contribs);
-    asciiWriteArray(tslice_topq5li, "timeslice_topq5li", traj);
-
-    std::vector<Real> topq5li_contribs = topologicalCharge5LiContributions(tslice_topq5li_contribs);
-    asciiWriteArray(topq5li_contribs, "topq5li_contribs", traj);
-   
-    RealD topq5li = topologicalCharge5Li(topq5li_contribs);
-    asciiWriteValue(topq5li, "topq5li", traj);
+  if(ngp == 0){
+    run<PeriodicSetup>(args, cfg_start, cfg_step, cfg_lessthan, cps_cfg);
+  }else{
+    run<GparitySetup>(args, cfg_start, cfg_step, cfg_lessthan, cps_cfg);
   }
-
+  
   std::cout << GridLogMessage << " Done" << std::endl;
   Grid_finalize();
   return 0;

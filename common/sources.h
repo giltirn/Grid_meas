@@ -94,9 +94,9 @@ namespace GridMeas{
     return src;
   }
 
-  //G-parity only
-  FermionFieldD randomGaussianVolumeSource(GridParallelRNG &rng, GridBase* UGrid){
-    FermionFieldD out(UGrid);
+  template<typename ActionD>
+  typename ActionD::FermionField randomGaussianVolumeSource(GridParallelRNG &rng, GridBase* UGrid){
+    typename ActionD::FermionField out(UGrid);
     //Default sigma^2 = 1     CPS uses sigma^2=1/2 for random source (cf alg_pbp.C)
     //The reason for choosing sigma^2=1/2 is because we want 1=<x* x> = <x_r^2> + <x_i^2>     and for mu=0  <x_r^2> = <x_i>^2 = sigma^2 
 

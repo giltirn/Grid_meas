@@ -97,4 +97,29 @@ namespace GridMeas{
   }
 
 
+  template<typename FieldType>
+  struct _fnf{};
+
+  template<>
+  struct _fnf<FermionFieldPeriodicD>{ enum {nf=1}; };
+
+  template<>
+  struct _fnf<FermionFieldPeriodicF>{ enum {nf=1}; };
+
+  //Unneeded, same as periodic
+  // template<>
+  // struct _fnf<FermionField1fD>{ enum {nf=1}; };
+
+  // template<>
+  // struct _fnf<FermionField1fF>{ enum {nf=1}; };
+
+  template<>
+  struct _fnf<FermionFieldD>{ enum {nf=2}; };
+
+  template<>
+  struct _fnf<FermionFieldF>{ enum {nf=2}; };
+
+  template<typename Field>
+  constexpr int fieldNflavors(){ return _fnf<Field>::nf; }
+  
 }

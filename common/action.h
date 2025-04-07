@@ -292,4 +292,47 @@ namespace GridMeas{
   }
 
 
+  struct ActionsPeriodic{
+    CayleyFermion5D<WilsonImplD>* action_d;
+    CayleyFermion5D<WilsonImplF>* action_f;
+  
+    ActionsPeriodic(): action_d(nullptr), action_f(nullptr){}
+
+    ActionsPeriodic(ActionType action,
+		    const WilsonImplD::ImplParams &Params, double mass, double mobius_scale,
+		    LatticeGaugeFieldD &U_d, Grids &GridsD,
+		    LatticeGaugeFieldF &U_f, Grids &GridsF){
+      printMem("Pre actionD creation");
+      action_d = createPeriodicActionD(action, Params, mass, mobius_scale, U_d, GridsD);
+      printMem("Pre actionF creation");
+      action_f = createPeriodicActionF(action, Params, mass, mobius_scale, U_f, GridsF);
+      printMem("Post actionD/F creation");
+    }    
+  
+    template<typename ActionType>
+    inline ActionType* getAction(){ return getInstance<ActionType*>(action_d, action_f); }
+
+    ~ActionsPeriodic(){
+      if(action_d) delete action_d;
+      if(action_f) delete action_f;
+    }
+
+    void ImportGauge(LatticeGaugeFieldD &U_d,LatticeGaugeFieldF &U_f){
+      if(action_d) action_d->ImportGauge(U_d);
+      if(action_f) action_f->ImportGauge(U_f);
+    }   
+    
+  };
+
+  //Setup the gauge BCs and return the parameters to set up the fermion actions
+  //Antiperiodic BCs in the time direction are assumed
+  inline WilsonImplD::ImplParams setupActionParamsPeriodic(){
+    assert(Nd == 4);    
+    WilsonImplD::ImplParams Params;
+    Params.boundary_phases[Nd-1] = -1; //APBC in time direction
+    std::cout << GridLogMessage << "Fermion BCs: " << Params.boundary_phases << std::endl;
+    return Params;
+  }
+
+  
 }

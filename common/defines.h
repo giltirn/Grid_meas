@@ -21,4 +21,10 @@ namespace GridMeas{
   typedef XconjugateWilsonImplF::FermionField FermionField1fF;
   typedef XconjugateWilsonImplF::SiteSpinor SiteSpinor1fF;
 
+  typedef WilsonImplD::FermionField FermionFieldPeriodicD;
+  typedef WilsonImplD::SiteSpinor SiteSpinorPeriodicD;
+  
+  typedef WilsonImplF::FermionField FermionFieldPeriodicF;
+  typedef WilsonImplF::SiteSpinor SiteSpinorPeriodicF;
+
 };

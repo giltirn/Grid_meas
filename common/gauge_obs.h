@@ -5,6 +5,7 @@
 namespace GridMeas{
   using namespace Grid;
 
+  template<typename GimplD>
   RealD avgOrientedPlaquette(const int mu, const int nu, const LatticeGaugeFieldD &Umu){
     std::vector<LatticeColourMatrixD> U(Nd, Umu.Grid());
     for (int mu = 0; mu < Nd; mu++) {
@@ -13,7 +14,7 @@ namespace GridMeas{
     double vol = Umu.Grid()->gSites();
 
     LatticeComplexD Plaq(Umu.Grid());
-    WilsonLoops<ConjugateGimplD>::traceDirPlaquette(Plaq, U, mu, nu);
+    WilsonLoops<GimplD>::traceDirPlaquette(Plaq, U, mu, nu);
     auto Tp = sum(Plaq);
     auto p = TensorRemove(Tp);
     RealD pr = p.real();

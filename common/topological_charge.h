@@ -14,8 +14,9 @@ namespace GridMeas{
   //3x3 : c5=1./20.
   //Output array contains the loops in the above order
   //V should be a smeared field
+  template<typename GimplD>
   inline std::vector<Real> topologicalCharge5LiContributions(const LatticeGaugeFieldD &V){
-    return WilsonLoops<ConjugateGimplD>::TopologicalCharge5LiContributions(V);
+    return WilsonLoops<GimplD>::TopologicalCharge5LiContributions(V);
   }
   
   inline Real topologicalCharge5Li(const std::vector<Real> &contribs){
@@ -28,14 +29,15 @@ namespace GridMeas{
     double Q = c1*contribs[0] + c2*contribs[1] + c3*contribs[2] + c4*contribs[3] + c5*contribs[4];
     return Q;
   }
-
+  template<typename GimplD>
   inline Real topologicalCharge5Li(const LatticeGaugeFieldD &V){
-    return topologicalCharge5Li( topologicalCharge5LiContributions(V) );
+    return topologicalCharge5Li( topologicalCharge5LiContributions<GimplD>(V) );
   }
 
   //outer index is the loop index, inner is t
+  template<typename GimplD>
   inline std::vector<std::vector<Real> > timesliceTopologicalCharge5LiContributions(const LatticeGaugeFieldD &V){
-    return WilsonLoops<ConjugateGimplD>::TimesliceTopologicalCharge5LiContributions(V);
+    return WilsonLoops<GimplD>::TimesliceTopologicalCharge5LiContributions(V);
   }
 
   //contributions from timeslice contributions
@@ -61,8 +63,9 @@ namespace GridMeas{
     return out;
   }
 
+  template<typename GimplD>
   inline std::vector<Real> timesliceTopologicalCharge5Li(const LatticeGaugeFieldD &V){
-    return timesliceTopologicalCharge5Li( timesliceTopologicalCharge5LiContributions(V) );
+    return timesliceTopologicalCharge5Li( timesliceTopologicalCharge5LiContributions<GimplD>(V) );
   }
 
 

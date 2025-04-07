@@ -8,8 +8,9 @@ namespace GridMeas{
   //Compute t^2 E(t) for 0<t<=Nstep*epsilon in increments of epsilon
   //Return vector of  [ t, t^2 E(t) ]
   //If V != nullptr, the smeared field is placed in V
+  template<typename GimplD>
   std::vector<std::pair<RealD,RealD> > WilsonFlowEnergyDensity(const int Nstep, const double epsilon, const LatticeGaugeFieldD &U, LatticeGaugeFieldD *V = nullptr){
-    WilsonFlow<ConjugateGimplD> wflow(Nstep, epsilon);
+    WilsonFlow<GimplD> wflow(Nstep, epsilon);
     std::vector<RealD> vals = V != nullptr ? wflow.flowMeasureEnergyDensityCloverleaf(*V,U) : wflow.flowMeasureEnergyDensityCloverleaf(U);
     assert(vals.size() == Nstep );
     std::vector<std::pair<RealD, RealD> > out(Nstep);
@@ -24,12 +25,13 @@ namespace GridMeas{
   //Output: 
   //       energy_density:  [ t, t^2 E(t) ]
   //       topq: [ t, [Q(tslice=0), Q(tslice=1)... Q(tslice=Lt-1)] ]
-  //If V != nullptr, the smeared field is placed in V  
+  //If V != nullptr, the smeared field is placed in V
+  template<typename GimplD>
   void WilsonFlowEnergyDensityAndTimesliceTopQ(std::vector<std::pair<RealD,RealD> > &energy_density,
 					       std::vector<std::pair<RealD,std::vector<RealD> > > &topq,
 					       const int Nstep, const double epsilon, const int meas_freq,
 					       const LatticeGaugeFieldD &U, LatticeGaugeFieldD *V = nullptr){
-    WilsonFlow<ConjugateGimplD> wflow(Nstep, epsilon);
+    WilsonFlow<GimplD> wflow(Nstep, epsilon);
     wflow.resetActions();    
     energy_density.resize(0);
     topq.resize(0);
@@ -41,7 +43,7 @@ namespace GridMeas{
 
     wflow.addMeasurement(meas_freq, [&topq](int step, RealD t, const LatticeGaugeField &U){ 
       std::cout << GridLogMessage << "[WilsonFlow] Computing timeslice topologial charge for step " << step << std::endl;
-      topq.push_back( {t, WilsonLoops<ConjugateGimplD>::TimesliceTopologicalCharge5Li(U) } );
+      topq.push_back( {t, WilsonLoops<GimplD>::TimesliceTopologicalCharge5Li(U) } );
     });      
 
     LatticeGaugeFieldD Vtmp(U.Grid());
@@ -83,12 +85,13 @@ namespace GridMeas{
   };
   
   //Wilson flow smearing with configurable outputs
+  template<typename GimplD>
   void WilsonFlowMeasGeneralOpt(WilsonFlowIO &meas,
 				const int Nstep, const double epsilon, bool do_adaptive, const double adaptive_maxTau, const double adaptive_tol,
 				const LatticeGaugeFieldD &U, LatticeGaugeFieldD *V = nullptr){
-    WilsonFlowBase<ConjugateGimplD>* wflow = nullptr;
-    if(do_adaptive) wflow = new WilsonFlowAdaptive<ConjugateGimplD>(epsilon, adaptive_maxTau, adaptive_tol);
-    else wflow = new WilsonFlow<ConjugateGimplD>(epsilon, Nstep);
+    WilsonFlowBase<GimplD>* wflow = nullptr;
+    if(do_adaptive) wflow = new WilsonFlowAdaptive<GimplD>(epsilon, adaptive_maxTau, adaptive_tol);
+    else wflow = new WilsonFlow<GimplD>(epsilon, Nstep);
 
     wflow->resetActions();    
     meas.clear();
@@ -108,13 +111,13 @@ namespace GridMeas{
     if(meas.do_timeslice_topq)
       wflow->addMeasurement(meas.timeslice_topq_meas_freq, [&meas](int step, RealD t, const LatticeGaugeField &U){ 
 	  std::cout << GridLogMessage << "[WilsonFlow] Computing timeslice topologial charge for step " << step << std::endl;
-	  meas.timeslice_topq.push_back( {t, WilsonLoops<ConjugateGimplD>::TimesliceTopologicalCharge5Li(U) } );
+	  meas.timeslice_topq.push_back( {t, WilsonLoops<GimplD>::TimesliceTopologicalCharge5Li(U) } );
 	});      
 
     if(meas.do_timeslice_plaq)
       wflow->addMeasurement(meas.timeslice_plaq_meas_freq, [&meas](int step, RealD t, const LatticeGaugeField &U){ 
 	  std::cout << GridLogMessage << "[WilsonFlow] Computing timeslice plaquette charge for step " << step << std::endl;
-	  meas.timeslice_plaq.push_back( {t, WilsonLoops<ConjugateGimplD>::timesliceAvgSpatialPlaquette(U) } );
+	  meas.timeslice_plaq.push_back( {t, WilsonLoops<GimplD>::timesliceAvgSpatialPlaquette(U) } );
 	});      
 
     LatticeGaugeFieldD Vtmp(U.Grid());
@@ -123,15 +126,17 @@ namespace GridMeas{
 
     if(V) *V = std::move(Vtmp);
   }
+  template<typename GimplD>
   inline void WilsonFlowMeasGeneral(WilsonFlowIO &meas,
 			     const int Nstep, const double epsilon,
 			     const LatticeGaugeFieldD &U, LatticeGaugeFieldD *V = nullptr){
-    WilsonFlowMeasGeneralOpt(meas,Nstep,epsilon,false,0,0,U,V);
+    WilsonFlowMeasGeneralOpt<GimplD>(meas,Nstep,epsilon,false,0,0,U,V);
   }
+  template<typename GimplD>
   inline void WilsonFlowAdaptiveMeasGeneral(WilsonFlowIO &meas,
 					    const double epsilon, const double maxTau, const double tol,
 					    const LatticeGaugeFieldD &U, LatticeGaugeFieldD *V = nullptr){
-    WilsonFlowMeasGeneralOpt(meas,0,epsilon,true,maxTau,tol,U,V);
+    WilsonFlowMeasGeneralOpt<GimplD>(meas,0,epsilon,true,maxTau,tol,U,V);
   }
 
 

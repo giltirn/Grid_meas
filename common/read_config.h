@@ -5,7 +5,7 @@
 namespace GridMeas{
   using namespace Grid;
 
-  
+  template<typename GimplD>
   void readConfiguration(LatticeGaugeFieldD &U,
 			 GridSerialRNG &sRNG,
 			 GridParallelRNG &pRNG,
@@ -15,12 +15,13 @@ namespace GridMeas{
 
     std::string dummy;
     CheckpointerParameters p(cfg_stub, dummy, rng_stub);
-    NerscHmcCheckpointer<ConjugateGimplD> cp(p);
+    NerscHmcCheckpointer<GimplD> cp(p);
 
     cp.CheckpointRestore(traj, U, sRNG, pRNG);
   }
 
   //For the CPS configurations we have to manually seed the RNG and deal with an incorrect factor of 2 in the plaquette metadata
+  template<typename GimplD>
   void readCPSconfiguration(LatticeGaugeFieldD &U,
 			    GridSerialRNG &sRNG,
 			    GridParallelRNG &pRNG,
@@ -30,8 +31,8 @@ namespace GridMeas{
     NerscIO::exitOnReadPlaquetteMismatch() = false;
 
     CheckpointerParameters p(cfg_stub, "pooh");
-    NerscHmcCheckpointer<ConjugateGimplD> cp(p);
-    typedef GaugeStatistics<ConjugateGimplD> GaugeStats;
+    NerscHmcCheckpointer<GimplD> cp(p);
+    typedef GaugeStatistics<GimplD> GaugeStats;
     
     std::string config, dummy;
     cp.build_filenames(traj, p, config, dummy, dummy);
@@ -48,20 +49,21 @@ namespace GridMeas{
     sRNG.SeedFixedIntegers(seeds4); 
   }
 
-
+  template<typename GimplD>
   void readConfiguration(LatticeGaugeFieldD &U,
 			 const std::string &filename){
-    typedef GaugeStatistics<ConjugateGimplD> GaugeStats;    
+    typedef GaugeStatistics<GimplD> GaugeStats;    
     FieldMetaData header;
     NerscIO::readConfiguration<GaugeStats>(U, header, filename);
   }
 
   //For the CPS configurations we have to manually seed the RNG and deal with an incorrect factor of 2 in the plaquette metadata
+  template<typename GimplD>
   void readCPSconfiguration(LatticeGaugeFieldD &U,
 			    const std::string &filename){
 
     NerscIO::exitOnReadPlaquetteMismatch() = false;
-    typedef GaugeStatistics<ConjugateGimplD> GaugeStats;
+    typedef GaugeStatistics<GimplD> GaugeStats;
     FieldMetaData header;
     NerscIO::readConfiguration<GaugeStats>(U, header, filename);
     NerscIO::exitOnReadPlaquetteMismatch() = true;
