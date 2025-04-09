@@ -20,7 +20,6 @@ struct MeasArgs: Serializable {
 				  int, nsloppy,
 				  int, nexact,
 				  LanczosParameters, lanc_args,
-				  LanczosParameters, lanc_args_s,
 				  int, evec_prec,
 				  std::vector<Integer>, tsep_src_snk_3pt
 				  );
