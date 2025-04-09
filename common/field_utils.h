@@ -148,6 +148,33 @@ namespace GridMeas{
     return p;
   }
 
+  template<typename Impl>
+  void convert5Dto4DpropWithMidProp(typename Impl::PropagatorField &prop4d, typename Impl::PropagatorField &prop4d_mid,
+				    const typename Impl::PropagatorField &prop5d, CayleyFermion5D<Impl> &action){
+    typedef typename Impl::FermionField FermType;
+    typedef columnOps<FermType> cop;
+    int Ncols = cop::Ncols;
+    assert(prop5d.Grid() == action.FermionGrid());
+    assert(prop4d.Grid() == action.GaugeGrid() && prop4d_mid.Grid() == action.GaugeGrid() );
+    FermType col5d(action.FermionGrid());
+    FermType col4d(action.GaugeGrid());
+
+    for(int c=0;c<Ncols;c++){
+      col5d = cop::extractColumn(prop5d, c);
+      action.ExportPhysicalFermionSolution(col5d, col4d);
+      cop::insertColumn(prop4d, col4d, c);
+
+      col4d = extractMidProp(col5d, action);
+      cop::insertColumn(prop4d_mid, col4d, c);
+    }
+  }
+  template<typename Impl>
+  void convert5Dto4Dprop(typename Impl::PropagatorField &prop4d,
+			 const typename Impl::PropagatorField &prop5d, CayleyFermion5D<Impl> &action){
+    typename Impl::PropagatorField prop4d_mid = prop4d;
+    convert5Dto4DpropWithMidProp(prop4d,prop4d_mid,prop5d,action);
+  }
+
   //Convert a 1f X-conjugate vector to a 2f
   template<typename TwoFlavorField, typename OneFlavorField>
   void get2fXconjVector(TwoFlavorField &to, const OneFlavorField &from){

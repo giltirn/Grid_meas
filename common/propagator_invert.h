@@ -157,7 +157,7 @@ namespace GridMeas{
     mixedPrecInvertWithMidProp(prop, midprop, msrc, action_d, action_f, args, (std::vector<Real> const*)nullptr, (std::vector<typename FermionActionD::FermionField> const *)nullptr);
   }
 
-  //For Nsrc sources, the 24*Nsrc inversions will be farmed out to the subgrids using the split-grid method
+  //For Nsrc sources, the Nsrc * ( 24(G-parity) or 12(periodic) ) inversions will be farmed out to the subgrids using the split-grid method
   //subgrid_action_f must be defined on the subgrids
   //subgrids_f must be the single precision subgrids
   //if do_midprop = true the msol_midprop output will be populated with the midpoint solutions

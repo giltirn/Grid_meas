@@ -334,5 +334,33 @@ namespace GridMeas{
     return Params;
   }
 
+
+  //Identify action type
+  template<typename ActionType>
+  struct isGparityAction{
+    enum { value = false };
+  }; 
+  template<>
+  struct isGparityAction<CayleyFermion5D<GparityWilsonImplD> >{
+    enum { value = true };
+  };
+  template<>
+  struct isGparityAction<CayleyFermion5D<GparityWilsonImplF> >{
+    enum { value = true };
+  };
+
+  template<typename ActionType>
+  struct isXconjAction{
+    enum { value = false };
+  }; 
+  template<>
+  struct isXconjAction<CayleyFermion5D<XconjugateWilsonImplD> >{
+    enum { value = true };
+  };
+  template<>
+  struct isXconjAction<CayleyFermion5D<XconjugateWilsonImplF> >{
+    enum { value = true };
+  };
+
   
 }

@@ -104,6 +104,7 @@ std::vector<RealD> operator-(const std::vector<RealD> &a, const std::vector<Real
 
 template<typename LanczosAction>
 void run(const MeasArgs &args, const Opts &opts){
+  typedef ConjugateGimplD Gimpl;
   printMem("Program body start");
   
   Coordinate latt = GridDefaultLatt();
@@ -210,20 +211,20 @@ void run(const MeasArgs &args, const Opts &opts){
     }else{
       std::cout << GridLogMessage << "Reading configuration" << std::endl;
       opts.cps_cfg ? 
-	readCPSconfiguration(U_d, sRNG, pRNG, traj, args.cfg_stub) :
-	readConfiguration(U_d, sRNG, pRNG, traj, args.cfg_stub, args.rng_stub);
+	readCPSconfiguration<Gimpl>(U_d, sRNG, pRNG, traj, args.cfg_stub) :
+	readConfiguration<Gimpl>(U_d, sRNG, pRNG, traj, args.cfg_stub, args.rng_stub);
     }
     printMem("Post configuration read");
     
     ///////////////////////////////// Gauge fix ///////////////////////////////////////////
     if(opts.use_gauge_fixing){
       if(opts.load_gfix_cfg)
-	readGaugeFixedConfiguration(U_d, opts.load_gfix_cfg_stub, traj);    
+	readGaugeFixedConfiguration<Gimpl>(U_d, opts.load_gfix_cfg_stub, traj);    
       else
-	CoulombGaugeFix(U_d, args.gfix_alpha, args.gfix_stop_cnd, args.gfix_fourier_accelerate);
+	CoulombGaugeFix<Gimpl>(U_d, args.gfix_alpha, args.gfix_stop_cnd, args.gfix_fourier_accelerate);
       
       if(opts.save_gfix_cfg)
-	writeGaugeFixedConfiguration(U_d, opts.save_gfix_cfg_stub, traj);
+	writeGaugeFixedConfiguration<Gimpl>(U_d, opts.save_gfix_cfg_stub, traj);
     }
     printMem("Post gauge fix");
     
