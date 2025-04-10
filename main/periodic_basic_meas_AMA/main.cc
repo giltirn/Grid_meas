@@ -397,19 +397,15 @@ void run(const MeasArgs &args, const Opts &opts){
 	  std::cout << GridLogMessage << "Starting exact PVP 3pt tsep=" << tsep << std::endl;
 	  C_PVP[tsepidx].setExact( computePionLocalVector3pt(R,t0, tsep, actions,actions_sub, eval, Lt, args.cg_args_exact, opts.use_split_grid),   t0, multiplicity );
 	}
-      }
-      
-      C_PP.write();
-      C_J5qP.write();
-      C_PP_WW.write();
-      C_lAP.write();
-      C_cAP.write();
-      for(int tsepidx=0;tsepidx< C_PVP.size();tsepidx++)
-	C_PVP[tsepidx].write();
+      }   
     }
-    
-    
-    
+    C_PP.write();
+    C_J5qP.write();
+    C_PP_WW.write();
+    C_lAP.write();
+    C_cAP.write();
+    for(int tsepidx=0;tsepidx< C_PVP.size();tsepidx++)
+      C_PVP[tsepidx].write();
   }//traj
 }
 
