@@ -1,3 +1,6 @@
+//This is the same as periodic_basic_meas_AMA but computes the PVP vector 3pt function with wall sources and wall sinks rather than a sequential solve
+//This is more efficient but requires a modification in the setting up of the propagators
+
 #include<Grid/Grid.h>
 #include <common.h>
 
@@ -137,34 +140,52 @@ void invert5D(LatticePropagatorD &into, const LatticePropagatorD &src, EvecConta
     eval.mixedPrecInvert5D(into, src, *actions.action_d, *actions.action_f, cg_args);  
 }
 
-//This version uses sequential sources and should be taken in ratio with the pion wall-local 2pt function
-template<typename EvecContainerType>
-std::vector<RealD> computePionLocalVector3pt(const LatticePropagatorD &prop, int tsrc, int tsep_src_snk, 
-			       ActionsPeriodic &actions, ActionsPeriodic &actions_sub,
-			       EvecContainerType &evecs, int Lt,  const MixedCGargs &cg_args, bool use_split_grid){
-  GridBase* UGridD = prop.Grid();
+
+template<typename DefaultAction, typename EvecContainerType>
+void invertWithMidPropIntoStore(std::vector<std::unique_ptr<LatticePropagatorD> > &prop_store,
+				std::vector<std::unique_ptr<LatticePropagatorD> > &prop_mid_store,
+				int tsrc,
+				EvecContainerType &eval, ActionsPeriodic &actions, ActionsPeriodic &actions_sub, Grids &GridsD,
+				const MixedCGargs &cg_args, bool use_split_grid){
+  if(prop_store[tsrc] && prop_mid_store[tsrc]) return;
+
+  LatticePropagatorD src = wallSource<DefaultAction>(tsrc, GridsD.UGrid);
+  LatticePropagatorD R(GridsD.UGrid), R_mid(GridsD.UGrid);
+  invertWithMidProp(R, R_mid, src, eval, actions, actions_sub, cg_args, use_split_grid);
+  
+  prop_store[tsrc].reset(new LatticePropagatorD(std::move(R)));
+  prop_mid_store[tsrc].reset(new LatticePropagatorD(std::move(R_mid)));
+}
+
+
+
+
+//This version uses wall sources and should be taken in ratio with the pion wall-wall 2pt function
+std::vector<RealD> computePionLocalVector3pt(const LatticePropagatorD &prop_tsink,
+					     const LatticePropagatorD &prop_tsrc,
+					     int tsrc, int tsep_src_snk, int Lt){
+  //  g5 [ \sum_{xsnk,xsrc}  G(x_src, tsrc; x_snk, tsnk) ]  g5  [ \sum_{x_snk' G(x_snk', tsnk; x,t) ] g4  [\sum_{x_src'} G(x,t ; x_src', tsrc)]
+  GridBase* UGridD = prop_tsrc.Grid();
   
   Gamma gamma4(Gamma::Algebra::GammaT);
   Gamma gamma5(Gamma::Algebra::Gamma5);
 
-  LatticePropagatorD zero_prop(UGridD); zero_prop= Zero();
-
   int tsnk = (tsrc + tsep_src_snk) % Lt;
-  LatticeInteger lcoor(UGridD); LatticeCoordinate(lcoor,3);
   
-  LatticePropagatorD seq_src = where( lcoor == tsnk, prop, zero_prop);
-  seq_src = gamma5 * seq_src * gamma5; //g5 G(x_snk, tsnk; x_src, tsrc) g5
+  std::vector<SpinColourMatrixD> prop_src_snk;
+  sliceSum(prop_tsink, prop_src_snk, 3);   //\sum_{xsnk,xsrc}  G(x_src, tsrc; x_snk, tsnk)     indexed by tsrc
+
+  LatticePropagatorD prop_snk_x = gamma5 * (adj(prop_tsink) * gamma5);
+    
+  LatticePropagatorD sqb = prop_snk_x *  (gamma4 * prop_tsrc);
   
-  LatticePropagatorD R_P_seq(UGridD);
-  invert(R_P_seq, seq_src, evecs, actions, actions_sub, cg_args, use_split_grid);
-
-  // [\sum_{x_src'} G(x_src', tsrc;  x,t)] g4 [ \sum_{x_snk,x_src} G(x,t; x_snk, tsnk) g5 G(x_snk, tsnk; x_src, tsrc) g5 ]
-  LatticePropagatorD sqb = gamma5 *( adj(prop) * (gamma5 * (gamma4  * R_P_seq))); 
-
-  std::vector<SpinColourMatrixD> Ctm;
+  std::vector<SpinColourMatrixD> Ctm; //\sum_x  [ \sum_{x_snk' G(x_snk', tsnk; x,t) ] g4  [\sum_{x_src'} G(x,t ; x_src', tsrc)]    indexed by t
   sliceSum(sqb, Ctm, 3);
   assert(Ctm.size() == Lt);
-  
+
+  for(int t=0;t<Lt;t++)
+    Ctm[t] = gamma5 * (prop_src_snk[tsrc] * (gamma5 * Ctm[t]));
+ 
   std::cout << GridLogMessage << "Computed correlator for " << Lt << " timeslices" << std::endl;
    
   std::vector<RealD> Ctx(Lt); //time coordinate is x[3]
@@ -236,8 +257,23 @@ void run(const MeasArgs &args, const Opts &opts){
       int t = i * tsep;
       src_t[i] = t;
     }
-    
+
     assert(args.nexact <= args.nsloppy);
+
+    //Check both 3pt src and sink timeslices are in the list
+    for(int i=0;i<args.nsloppy;i++){    
+      int t = src_t[i];
+
+      for(int j=0;j<args.tsep_src_snk_3pt.size();j++){
+	int tsep = args.tsep_src_snk_3pt[j];
+	int tsnk = ( t + tsep ) % Lt;
+
+	if(std::find(src_t.begin(),src_t.end(), tsnk) == src_t.end()){
+	  std::cerr << "For sloppy source timeslice " << t << " require 3pt sink timeslice " << tsnk << " to also be a sloppy source timeslice. Ensure nsloppy is set such that the src-sink 3pt separations are a multiple of Lt/nsloppy=" << tsep << std::endl;
+	  assert(0);
+	}
+      }
+    }    
   }
 
   printMem("Pre trajectory loop");
@@ -265,11 +301,25 @@ void run(const MeasArgs &args, const Opts &opts){
       Integer sloppy_idx = (Integer)( rt * args.nsloppy );
       Integer t = src_t[sloppy_idx];
 
+      std::cout << "Rolled base exact timeslice " << t << std::endl;
+
       auto it = exact_src_t.find(t);
       if(it == exact_src_t.end())
 	exact_src_t[t] = 1;
       else
 	++exact_src_t[t];
+
+      //As we will be computing propagators from a number of extra exact timeslices we may as well compute the 2pt corrections there also
+      for(int j=0;j<args.tsep_src_snk_3pt.size();j++){
+	int tsep = args.tsep_src_snk_3pt[j];
+	int tsnk = ( t + tsep ) % Lt;
+
+	it = exact_src_t.find(tsnk);
+	if(it == exact_src_t.end())
+	  exact_src_t[tsnk] = 1;
+	else
+	  ++exact_src_t[tsnk];
+      }
     }
 
     std::cout << GridLogMessage << "Computing with sloppy solves on the following timeslices. The multiplicity of exact solves is given in parentheses." << std::endl;
@@ -282,7 +332,7 @@ void run(const MeasArgs &args, const Opts &opts){
       etotal += emult;
     }
     std::cout << std::endl;
-    assert(etotal == args.nexact);
+    assert(etotal == (1 + args.tsep_src_snk_3pt.size()) * args.nexact);
 
     ///////////////////////////////// Read config /////////////////////////////////////////
     if(opts.unit_gauge){
@@ -336,7 +386,6 @@ void run(const MeasArgs &args, const Opts &opts){
     COR(C_J5qP);
     COR(C_PP_WW);
     COR(C_lAP);
-    COR(C_cAP);
     
     std::vector<Correlator> C_PVP(args.tsep_src_snk_3pt.size());
     for(int tsepidx=0;tsepidx< C_PVP.size();tsepidx++){
@@ -345,59 +394,69 @@ void run(const MeasArgs &args, const Opts &opts){
       C_PVP[tsepidx] = Correlator(Lt,stub.str(),traj);
     }
 
+    //storage for propagators
+    std::vector<std::unique_ptr<LatticePropagatorD> > prop_store(Lt);
+    std::vector<std::unique_ptr<LatticePropagatorD> > prop_mid_store(Lt);
+    
+    std::vector<std::unique_ptr<LatticePropagatorD> > prop_store_exact(Lt);
+    std::vector<std::unique_ptr<LatticePropagatorD> > prop_mid_store_exact(Lt);
+
     /////////////////////////////////// Trajectory loop //////////////////////////////////////////
     for(int s=0;s<args.nsloppy;s++){ 
-      int t0 = src_t[s];
-      std::cout << GridLogMessage << "Starting calculation with source timeslice t0=" << t0 << std::endl;
+      int tsrc = src_t[s];
+      std::cout << GridLogMessage << "Starting calculation with source timeslice tsrc=" << tsrc << std::endl;
       printMem("Start of timeslice sloppy");
       resetDeviceStackMemory();
       printMem("Post stack memory reset");
       
       //Gauge fixed wall source
-      LatticePropagatorD src = wallSource<DefaultAction>(t0, GridsD.UGrid);
+      LatticePropagatorD src = wallSource<DefaultAction>(tsrc, GridsD.UGrid);
 
       printMem("Post create wall source");
 
-      std::cout << GridLogMessage << "Starting sloppy quark inverse" << std::endl;
-      LatticePropagatorD R5D(GridsD.FGrid);
-      invert5D(R5D, src, eval, actions, actions_sub, args.cg_args_sloppy, opts.use_split_grid);
-
-      LatticePropagatorD R(GridsD.UGrid), R_mid(GridsD.UGrid);
-      convert5Dto4DpropWithMidProp(R,R_mid,R5D, *actions.action_d);
+      std::cout << GridLogMessage << "Starting/retrieving sloppy quark inverse for tsrc=" << tsrc << std::endl;
+      invertWithMidPropIntoStore<DefaultAction>(prop_store, prop_mid_store, tsrc, eval, actions, actions_sub, GridsD, args.cg_args_sloppy, opts.use_split_grid);
 
       std::cout << GridLogMessage << "Starting sloppy contractions" << std::endl;
-      C_PP.setSloppy( pionCorrelator(t0,R), t0);
-      C_J5qP.setSloppy( pionCorrelator(t0,R_mid), t0);
-      C_PP_WW.setSloppy( wallSinkPionCorrelator(t0,R), t0);
-      C_lAP.setSloppy( pionToLocalAxialTcorrelator(t0,R), t0);
-      C_cAP.setSloppy( pionToConservedAxialTcorrelator(t0,R5D,*actions.action_d), t0);
+      C_PP.setSloppy( pionCorrelator(tsrc, *prop_store[tsrc]), tsrc);
+      C_J5qP.setSloppy( pionCorrelator(tsrc, *prop_mid_store[tsrc]), tsrc);
+      C_PP_WW.setSloppy( wallSinkPionCorrelator(tsrc, *prop_store[tsrc]), tsrc);
+      C_lAP.setSloppy( pionToLocalAxialTcorrelator(tsrc, *prop_store[tsrc]), tsrc);
       
       for(int tsepidx=0;tsepidx< C_PVP.size();tsepidx++){
 	int tsep = args.tsep_src_snk_3pt[tsepidx];
+	int tsnk = (tsrc + tsep) % Lt;
+
+	std::cout << GridLogMessage << "Starting/retrieving sloppy quark inverse for tsrc=" << tsnk << std::endl;
+	invertWithMidPropIntoStore<DefaultAction>(prop_store, prop_mid_store, tsnk, eval, actions, actions_sub, GridsD, args.cg_args_sloppy, opts.use_split_grid);
+
 	std::cout << GridLogMessage << "Starting sloppy PVP 3pt tsep=" << tsep << std::endl;
-	C_PVP[tsepidx].setSloppy( computePionLocalVector3pt(R,t0, tsep, actions,actions_sub, eval, Lt, args.cg_args_sloppy, opts.use_split_grid),   t0 );
+	C_PVP[tsepidx].setSloppy( computePionLocalVector3pt(*prop_store[tsnk],*prop_store[tsrc], tsrc, tsep, Lt), tsrc );
       }
       
-      auto eit = exact_src_t.find(t0);
+      auto eit = exact_src_t.find(tsrc);
       if(eit != exact_src_t.end()){
 	int multiplicity = eit->second;
 
 	//Do exact solve
-	std::cout << GridLogMessage << "Starting exact quark inverse" << std::endl;
-	invert5D(R5D, src, eval, actions, actions_sub, args.cg_args_exact, opts.use_split_grid);
-	convert5Dto4DpropWithMidProp(R,R_mid,R5D, *actions.action_d);
+	std::cout << GridLogMessage << "Starting/retrieving exact quark inverse for tsrc=" << tsrc << std::endl;
+	invertWithMidPropIntoStore<DefaultAction>(prop_store_exact, prop_mid_store_exact, tsrc, eval, actions, actions_sub, GridsD, args.cg_args_exact, opts.use_split_grid);
 
 	std::cout << GridLogMessage << "Starting exact contractions" << std::endl;
-	C_PP.setExact( pionCorrelator(t0,R), t0, multiplicity);
-	C_J5qP.setExact( pionCorrelator(t0,R_mid), t0, multiplicity);
-	C_PP_WW.setExact( wallSinkPionCorrelator(t0,R), t0, multiplicity);
-	C_lAP.setExact( pionToLocalAxialTcorrelator(t0,R), t0, multiplicity);
-	C_cAP.setExact( pionToConservedAxialTcorrelator(t0,R5D,*actions.action_d), t0, multiplicity);
+	C_PP.setExact( pionCorrelator(tsrc,*prop_store_exact[tsrc]), tsrc, multiplicity);
+	C_J5qP.setExact( pionCorrelator(tsrc,*prop_mid_store_exact[tsrc]), tsrc, multiplicity);
+	C_PP_WW.setExact( wallSinkPionCorrelator(tsrc,*prop_store_exact[tsrc]), tsrc, multiplicity);
+	C_lAP.setExact( pionToLocalAxialTcorrelator(tsrc,*prop_store_exact[tsrc]), tsrc, multiplicity);
 	
 	for(int tsepidx=0;tsepidx< C_PVP.size();tsepidx++){
 	  int tsep = args.tsep_src_snk_3pt[tsepidx];
+	  int tsnk = (tsrc + tsep) % Lt;
+
+	  std::cout << GridLogMessage << "Starting/retrieving exact quark inverse for tsrc=" << tsnk << std::endl;
+	  invertWithMidPropIntoStore<DefaultAction>(prop_store_exact, prop_mid_store_exact, tsnk, eval, actions, actions_sub, GridsD, args.cg_args_exact, opts.use_split_grid);
+
 	  std::cout << GridLogMessage << "Starting exact PVP 3pt tsep=" << tsep << std::endl;
-	  C_PVP[tsepidx].setExact( computePionLocalVector3pt(R,t0, tsep, actions,actions_sub, eval, Lt, args.cg_args_exact, opts.use_split_grid),   t0, multiplicity );
+	  C_PVP[tsepidx].setExact( computePionLocalVector3pt(*prop_store_exact[tsnk],*prop_store_exact[tsrc], tsrc, tsep, Lt),   tsrc, multiplicity );
 	}
       }   
     }
@@ -405,7 +464,7 @@ void run(const MeasArgs &args, const Opts &opts){
     C_J5qP.write();
     C_PP_WW.write();
     C_lAP.write();
-    C_cAP.write();
+
     for(int tsepidx=0;tsepidx< C_PVP.size();tsepidx++)
       C_PVP[tsepidx].write();
   }//traj
